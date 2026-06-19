@@ -17,9 +17,6 @@ const config: Config = {
       },
       fontFamily: {
         makonis: ["var(--font-makonis)", "sans-serif"],
-        "makonis-heading": ["var(--font-makonis-heading)", "sans-serif"],
-        "makonis-heading-bold": ["var(--font-makonis-heading-bold)", "sans-serif"],
-        "makonis-heading-medium": ["var(--font-makonis-heading-medium)", "sans-serif"],
       },
       maxWidth: {
         "7xl": "1280px",

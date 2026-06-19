@@ -1,11 +1,27 @@
+import Navbar from "@/components/layout/Navbar";
+import HeroSection from "@/components/sections/HeroSection";
+import IntroSection from "@/components/sections/IntroSection";
+import ServicesSection from "@/components/sections/ServicesSection";
+import ProcessSection from "@/components/sections/ProcessSection";
+import ImpactSection from "@/components/sections/ImpactSection";
+import WhyAISection from "@/components/sections/WhyAISection";
+
 export default function Home() {
   return (
-    <main className="makonis-container section-padding">
-      <p className="eyebrow text-makonis-white ">Makonis AI</p>
-      <h1 className="mt-4 font-medium text-makonis-white">Makonis AI Website</h1>
-      <p className="body-text mt-6 max-w-xl text-makonis-white/80">
-        Clean Next.js starter with Makonis fonts, colors, and typography from makonis-web.
-      </p>
-    </main>
+    <>
+      <Navbar />
+      <main className="relative">
+        <HeroSection />
+
+        {/* Pulls content up so sections slide over the pinned hero */}
+        <div className="relative z-10 -mt-[100vh]">
+          <IntroSection />
+          <ServicesSection />
+          <ProcessSection />
+          <ImpactSection />
+          <WhyAISection />
+        </div>
+      </main>
+    </>
   );
 }

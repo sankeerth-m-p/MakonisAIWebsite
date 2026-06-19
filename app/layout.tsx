@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import localFont from "next/font/local";
+import { gradientCssVars } from "@/data/gradients";
 import "./globals.css";
 
 const interDisplay = Inter({
@@ -9,24 +10,6 @@ const interDisplay = Inter({
   weight: "variable",
   variable: "--font-makonis",
   display: "swap",
-});
-
-const ffClan = localFont({
-  src: "../public/fonts/hero font/FF Clan OT Black.otf",
-  variable: "--font-makonis-heading",
-  display: "block",
-});
-
-const ffClanMedium = localFont({
-  src: "../public/fonts/hero font/FF Clan OT Medium.otf",
-  variable: "--font-makonis-heading-medium",
-  display: "block",
-});
-
-const ffClanBold = localFont({
-  src: "../public/fonts/hero font/FF Clan OT Bold.otf",
-  variable: "--font-makonis-heading-bold",
-  display: "block",
 });
 
 const magistralLight = localFont({
@@ -48,7 +31,8 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${interDisplay.variable} ${ffClan.variable} ${ffClanMedium.variable} ${ffClanBold.variable} ${magistralLight.variable}`}
+      className={`${interDisplay.variable} ${magistralLight.variable}`}
+      style={gradientCssVars()}
       suppressHydrationWarning
     >
       <body
