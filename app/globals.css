@@ -1,26 +1,195 @@
 @import "tailwindcss";
 
+@theme {
+  --color-makonis-white: #FFFFFF;
+  --color-makonis-dark: #1D1C21;
+  --color-makonis-gray: #7D7D7D;
+  --color-makonis-blue: #124392;
+  --color-makonis-lightblue: #1F97D0;
+  --container-8xl: 1440px;
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --panel-width: 30vw;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+html {
+  background: #1D1C21;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+
+.lenis.lenis-stopped {
+  overflow: hidden;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-makonis), sans-serif;
+  @apply bg-makonis-dark text-base font-normal leading-[26px] text-[#25231f];
+  background: var(--color-makonis-dark);
+}
+
+p {
+  font-family: var(--font-makonis), sans-serif;
+  @apply text-base font-normal leading-[26px];
+}
+
+.font-makonis { font-family: var(--font-makonis), sans-serif; }
+.font-makonis-heading { font-family: var(--font-makonis-heading), sans-serif; }
+.font-makonis-heading-bold { font-family: var(--font-makonis-heading-bold), sans-serif; }
+.font-makonis-heading-medium { font-family: var(--font-makonis-heading-medium), sans-serif; }
+.font-makonis-progress { font-family: var(--font-makonis-progress), sans-serif; }
+.font-makonis-bold { font-family: var(--font-makonis), sans-serif; font-weight: 700; }
+.font-display { font-family: var(--font-makonis-heading), sans-serif; }
+.font-body { font-family: var(--font-makonis), sans-serif; }
+
+::-webkit-scrollbar { width: 0px; }
+::-webkit-scrollbar-track { @apply bg-makonis-dark; }
+::-webkit-scrollbar-thumb { @apply bg-makonis-blue rounded-full; }
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeSoft {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeRepeat {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 1; }
+}
+
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+@keyframes glowPulse {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50% { opacity: 0.7; transform: scale(1.08); }
+}
+
+@keyframes floatSideways {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(24px); }
+}
+
+@keyframes charUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0%); }
+}
+
+@keyframes charReveal {
+  from {
+    opacity: 0;
+    transform: translateY(120%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0%);
+  }
+}
+
+.animate-fade-up { animation: fadeUp 0.7s ease forwards; }
+.animate-fade-soft { animation: fadeSoft 0.6s ease-out forwards; }
+.animate-fade-repeat { animation: fadeRepeat 2.2s ease-in-out infinite; }
+.animate-marquee { animation: marquee 30s linear infinite; }
+.animate-glow-pulse { animation: glowPulse 4s ease-in-out infinite; }
+.animate-float-sideways { animation: floatSideways 7s ease-in-out infinite; }
+.animate-char-up { animation: charUp 0.8s ease forwards; }
+.animate-char-reveal { animation: charReveal 0.8s ease forwards; }
+
+@keyframes modalIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.animate-modal-in { animation: modalIn 0.3s ease forwards; }
+
+@layer components {
+  .makonis-container { @apply max-w-8xl mx-auto px-4 md:px-6 w-full; }
+  .section-padding { @apply md:py-20; }
+  .section-padding-sm { @apply py-12; }
+  .section-padding-lg { @apply py-20; }
+
+  h1 { @apply text-3xl md:text-5xl lg:text-5xl; }
+  h2 { @apply text-[28px] md:text-[40px] lg:text-5xl leading-[32px] md:leading-[44px] lg:leading-[52px]; }
+  h3 { @apply text-2xl md:text-[28px] lg:text-3xl; }
+  h4 { @apply text-xl md:text-[22px] lg:text-2xl; }
+  h5 { @apply text-lg md:text-[18px] lg:text-xl; }
+  h6 { @apply text-base md:text-lg lg:text-xl leading-[24px] md:leading-[28px] lg:leading-[52px]; }
+
+  .body-text { font-family: var(--font-makonis), sans-serif; @apply text-base lg:text-lg text-makonis-dark/80; }
+  .subtext { font-family: var(--font-makonis), sans-serif; @apply text-base text-makonis-dark; }
+  .eyebrow {
+    font-family: var(--font-makonis), sans-serif;
+    font-size: 0.75rem !important;
+    line-height: 1 !important;
+    letter-spacing: 0.18em !important;
+    display: inline-block;
+    @apply font-medium uppercase text-makonis-dark;
+  }
+  .nav-label { @apply text-[0.95rem]; }
+  .btn {
+    font-family: var(--font-makonis), sans-serif;
+    @apply inline-flex rounded-sm items-center justify-center gap-2 font-medium text-sm transition-colors transition-transform duration-300 ease-in-out cursor-pointer;
+  }
+  .btn-blue { @apply bg-transparent text-[#0f488b] border-[#0f488b] rounded-sm border-1 px-7 py-4 hover:bg-transparent hover:text-makonis-white hover:border-[#0f488b] active:scale-[0.97]; }
+  .btn-outline { @apply border-2 border-[#0f488b] text-[#0f488b] rounded-sm bg-transparent px-7 py-4 hover:bg-[#0f488b] hover:text-makonis-white active:scale-[0.97]; }
+  .btn-transparent { @apply border border-makonis-white rounded-sm bg-transparent px-7 py-4 text-[#0f488b] hover:text-[#0f488b] active:scale-[0.97]; }
+  .btn-white-outline { @apply border border-makonis-white text-makonis-white rounded-sm bg-transparent px-7 py-4 hover:text-makonis-dark active:scale-[0.97]; }
+}
+
+.btn {
+  position: relative;
+  overflow: hidden;
+  background: transparent;
+  transition: color 0.35s ease;
+}
+
+.btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: #D85A30;
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn:hover::before { transform: scaleX(1); }
+
+.btn span {
+  position: relative;
+  z-index: 1;
+}
+
+.makonis-shadow {
+  box-shadow: -16px 22px 43px 0 rgba(0, 0, 0, 0.04);
+}
+
+.sentence-case {
+  text-transform: lowercase;
+}
+.sentence-case::first-letter {
+  text-transform: uppercase;
 }
