@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import localFont from "next/font/local";
+import WeatherBackground from "@/components/WeatherBackground";
 import { gradientCssVars } from "@/data/gradients";
 import "./globals.css";
 
@@ -36,10 +37,11 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body
-        className="min-h-screen overflow-x-hidden bg-[var(--color-makonis-dark)]"
+        className="isolate min-h-screen overflow-x-clip"
         suppressHydrationWarning
       >
-        {children}
+        <WeatherBackground />
+        <div className="relative z-0">{children}</div>
       </body>
     </html>
   );

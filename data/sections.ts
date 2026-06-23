@@ -5,6 +5,7 @@ export type NavLink = {
 
 export const NAV_LINKS: NavLink[] = [
   { id: "hero", label: "Home" },
+  { id: "weather", label: "Weather" },
   { id: "intro", label: "Intro" },
   { id: "services", label: "Services" },
   { id: "process", label: "Process" },
@@ -48,36 +49,79 @@ export const SERVICES: ServiceItem[] = [
 export const PROCESS_STEPS = [
   {
     step: "1",
-    title: "Strategy & Planning",
-    description: "Defining the roadmap and identifying the right AI opportunities.",
+    title: "Define clear goals and desired outcomes",
+    description:
+      "Start by pinpointing the exact problem you want to solve and why it matters. Identify who will use the solution, what value it should deliver, and how you'll measure success. Set specific, realistic outcomes so every decision that follows stays aligned with your end goal.",
   },
   {
     step: "2",
-    title: "Design & Development",
-    description: "Building custom solutions tailored to your business needs.",
+    title: "Define clear goals and desired outcomes",
+    description:
+      "Start by pinpointing the exact problem you want to solve and why it matters. Identify who will use the solution, what value it should deliver, and how you'll measure success. Set specific, realistic outcomes so every decision that follows stays aligned with your end goal.",
   },
   {
     step: "3",
-    title: "Deployment & Scaling",
-    description: "Launching, integrating, and growing your AI capabilities.",
+    title: "Define clear goals and desired outcomes",
+    description:
+      "Start by pinpointing the exact problem you want to solve and why it matters. Identify who will use the solution, what value it should deliver, and how you'll measure success. Set specific, realistic outcomes so every decision that follows stays aligned with your end goal.",
   },
 ];
 
-export const IMPACT_CARDS = [
+export type ImpactCard = {
+  title: string;
+  description: string;
+  image: string;
+  accent: string;
+};
+
+export const IMPACT_CARDS: ImpactCard[] = [
   {
-    title: "Increased Efficiency",
-    description: "Automate repetitive tasks and streamline operations.",
+    title: "AI for healthcare",
+    description:
+      "Reduce administrative burden and enhance patient care workflows with clinical AI.",
+    image: "/ai%20impact/healthcare1.png",
+    accent: "#D85A30",
   },
   {
-    title: "Enhanced Innovation",
-    description: "Unlock new possibilities and stay ahead of the curve.",
+    title: "AI for talent acquisition",
+    description:
+      "Automate candidate screening and improve hiring decisions to reduce time-to-hire.",
+    image: "/ai%20impact/talent.png",
+    accent: "#1D6EEB",
   },
   {
-    title: "Data-Driven Decisions",
-    description: "Gain deeper insights and make smarter business moves.",
+    title: "AI for financial markets",
+    description:
+      "Analyze market signals, manage risk, and generate trading intelligence faster.",
+    image: "/ai%20impact/financial.png",
+    accent: "#25AFC5",
   },
   {
-    title: "Competitive Advantage",
-    description: "Lead your industry with AI-powered differentiation.",
+    title: "AI for knowledge management",
+    description:
+      "Turn scattered enterprise information into accessible, actionable intelligence.",
+    image: "/ai%20impact/knowledge_management.png",
+    accent: "#38B9A8",
+  },
+  {
+    title: "AI for workflow automation",
+    description:
+      "Reduce manual effort and free teams to focus on higher-value activities.",
+    image: "/ai%20impact/Workflow.png",
+    accent: "#E48C3B",
+  },
+  {
+    title: "AI for IoT & operations",
+    description:
+      "Monitor, analyse, and act on real-time data from connected devices and systems.",
+    image: "/ai%20impact/IoT_Operations.png",
+    accent: "#1E8BD7",
+  },
+  {
+    title: "AI for enterprise applications",
+    description:
+      "Embed intelligence into core enterprise applications for smarter decision-making.",
+    image: "/ai%20impact/ernterprise_app.png",
+    accent: "#49BCAF",
   },
 ];

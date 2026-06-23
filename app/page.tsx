@@ -1,22 +1,35 @@
 import Navbar from "@/components/layout/Navbar";
 import HeroSection from "@/components/sections/HeroSection";
 import IntroSection from "@/components/sections/IntroSection";
-import ServicesSection from "@/components/sections/ServicesSection";
+import ServiceCustomAISection from "@/components/sections/ServiceCustomAISection";
+import ServiceGenerativeAISection from "@/components/sections/ServiceGenerativeAISection";
+import ServiceDataEngineeringSection from "@/components/sections/ServiceDataEngineeringSection";
+import ServiceModelOpsSection from "@/components/sections/ServiceModelOpsSection";
 import ProcessSection from "@/components/sections/ProcessSection";
 import ImpactSection from "@/components/sections/ImpactSection";
 import WhyAISection from "@/components/sections/WhyAISection";
-
+import WeatherSection from "@/components/sections/WeatherSection";
+import { SECTION_GRADIENT_CLASS as gradient } from "@/data/gradients";
 export default function Home() {
   return (
     <>
       <Navbar />
-      <main className="relative">
+      <main style={{ position: "relative" }}>
         <HeroSection />
 
-        {/* Pulls content up so sections slide over the pinned hero */}
-        <div className="relative z-10 -mt-[100vh]">
+        <div
+          style={{
+            position: "relative",
+            zIndex: 10,
+            marginTop: "-150vh", // pulls content up to overlap the pinned hero
+            backgroundColor: "var(--background)", // must have bg or hero shows through
+          }}
+        ><div className="h-screen"/> 
           <IntroSection />
-          <ServicesSection />
+          <ServiceCustomAISection />
+          <ServiceGenerativeAISection />
+          <ServiceDataEngineeringSection />
+          <ServiceModelOpsSection />
           <ProcessSection />
           <ImpactSection />
           <WhyAISection />

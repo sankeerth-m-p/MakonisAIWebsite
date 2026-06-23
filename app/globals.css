@@ -16,7 +16,7 @@
   @apply border-4 border-red-500;
 }
 html {
-  background: #1D1C21;
+  background: transparent;
   scroll-behavior: smooth;
   scroll-padding-top: 5rem;
   -webkit-font-smoothing: antialiased;
@@ -44,7 +44,8 @@ html.lenis body {
 
 body {
   font-family: var(--font-makonis), sans-serif;
-  @apply bg-makonis-dark text-makonis-white;
+  background: transparent;
+  @apply text-makonis-white;
   color: #ffffff;
 }
 
@@ -148,7 +149,7 @@ button {
 
   h1 { @apply text-3xl md:text-5xl lg:text-6xl; }
   h2 { @apply text-2xl md:text-4xl lg:text-5xl; }
-  h3 { @apply text-xl md:text-2xl lg:text-3xl; }
+  h3 { @apply text-xl md:text-3xl lg:text-4xl; }
   h4 { @apply text-lg md:text-xl; }
   h5 { @apply text-base md:text-lg; }
   h6 { @apply text-sm md:text-base; }
@@ -171,6 +172,10 @@ button {
 
   /* Section backgrounds — colors live in data/gradients.ts */
   .section-gradient-intro { background: var(--gradient-intro); }
+  .section-gradient-service1 { background: var(--gradient-service1); }
+  .section-gradient-service2 { background: var(--gradient-service2); }
+  .section-gradient-service3 { background: var(--gradient-service3); }
+  .section-gradient-service4 { background: var(--gradient-service4); }
   .section-gradient-services { background: var(--gradient-services); }
   .section-gradient-process { background: var(--gradient-process); }
   .process-lab-visual { background: var(--gradient-process-lab); }
