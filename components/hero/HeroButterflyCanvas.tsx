@@ -33,9 +33,11 @@ export const DEFAULT_BUTTERFLY_PATH: PathKeyframe[] = [
 /** Tuned path — keyframe `t` is video progress (0 = video start, 1 = video end). */
 export const CUSTOM_BUTTERFLY_PATH: PathKeyframe[] = [
   { t: 0.0, x: 0.9993, y: 0.7752 }, // before video starts — off-screen right
-  { t: 0.04, x: 0.8053, y: 0.5312 },
-  { t: 0.145, x: 0.625, y: 0.3589 },
-  { t: 0.232, x: 0.2747, y: 0.3717 },
+{ t: 0.04, x: 0.8053, y: 0.5312 },
+  // Sitting segment: smooth upward incline (no mid dip).
+  { t: 0.145, x: 0.625, y: 0.492 },
+  // { t: 0.188, x: 0.4499, y: 0.358 },
+  { t: 0.232, x: 0.2747, y: 0.224 },
   { t: 0.277, x: 0.1725, y: 0.2903 },
   { t: 0.35, x: 0.304, y: 0.4801 },
   { t: 0.457, x: 0.5299, y: 0.3589 },
@@ -94,12 +96,24 @@ const BUTTERFLY_SIZE        = 350;
 const MOBILE_BUTTERFLY_SIZE = 150;
 const PATH_LINE_STEPS       = 80;
 const TAKEOFF_FRAME_COUNT   = 27;
+/** Load/render every Nth takeoff frame to keep takeoff snappier. */
+const TAKEOFF_FRAME_STRIDE  = 3;
 const SITTING_FRAME_COUNT   = 33;
 const FLYING_FRAME_COUNT    = 8;
 const FIRST_SITTING_FRAME   = 6;
 const TAKEOFF_PATH = "/butterfly/takeoff";
 const SITTING_PATH = "/butterfly/sitting";
 const FLYING_PATH  = "/butterfly/flying";
+/** Duration of each half of a direction-change flip transition. */
+const DIRECTION_FLIP_PHASE_SECONDS = 0.46;
+/** Progress span used for each takeoff transition segment. */
+const TAKEOFF_TRANSITION_SPAN = 0.018;
+/** Only this center fraction of each window uses sitting frames. */
+const SITTING_CORE_FRACTION = 0.38;
+const SITTING_POSE_WINDOWS: Array<{ start: number; end: number }> = [
+  // Hold a perched/sitting-style body while still flapping.
+  { start: 0.145, end: 0.232 },
+];
 
 // ---------------------------------------------------------------------------
 // Types
@@ -113,6 +127,8 @@ type HeroButterflyCanvasProps = {
   progressRef: RefObject<number>;
   path?: PathKeyframe[];
   showPath?: boolean;
+  /** Debug/testing: show keyframe points without enabling full path line. */
+  showPathPoints?: boolean;
   /**
    * Dev-only path editor. Shows your hero video, lets you scrub to any
    * frame and click where the butterfly should be at that video progress.
@@ -155,49 +171,102 @@ function whenBrowserIsIdle(cb: () => void) {
 }
 
 function isMobile() { return window.innerWidth < 768; }
+type PoseStage = "sitting" | "takeoffIn" | "takeoffOut" | "flying";
+function getSittingCoreBounds(start: number, end: number) {
+  const span = Math.max(0, end - start);
+  const coreSpan = span * SITTING_CORE_FRACTION;
+  const trim = (span - coreSpan) / 2;
+  return {
+    coreStart: start + trim,
+    coreEnd: end - trim,
+  };
+}
+
+function getPoseStage(progress: number): PoseStage {
+  for (const { start, end } of SITTING_POSE_WINDOWS) {
+    const { coreStart, coreEnd } = getSittingCoreBounds(start, end);
+    const takeoffInStart = coreStart - TAKEOFF_TRANSITION_SPAN;
+    const takeoffInEnd = coreStart;
+    const takeoffOutStart = coreEnd;
+    const takeoffOutEnd = coreEnd + TAKEOFF_TRANSITION_SPAN;
+
+    if (progress >= takeoffInStart && progress < takeoffInEnd) return "takeoffIn";
+    if (progress >= coreStart && progress < coreEnd) return "sitting";
+    if (progress >= takeoffOutStart && progress < takeoffOutEnd) return "takeoffOut";
+  }
+  return "flying";
+}
+
+function getTakeoffTransitionFrameIndex(progress: number, reverse: boolean, frameCount: number) {
+  if (frameCount <= 1) return 0;
+  for (const { start, end } of SITTING_POSE_WINDOWS) {
+    const { coreStart, coreEnd } = getSittingCoreBounds(start, end);
+    const from = reverse ? coreStart - TAKEOFF_TRANSITION_SPAN : coreEnd;
+    const to = reverse ? coreStart : coreEnd + TAKEOFF_TRANSITION_SPAN;
+    if (progress < from || progress >= to) continue;
+    const t = Math.max(0, Math.min(1, (progress - from) / (to - from || 1)));
+    const takeoffT = reverse ? 1 - t : t;
+    return Math.floor(takeoffT * (frameCount - 1));
+  }
+  return reverse ? frameCount - 1 : 0;
+}
+
+function getTakeoffFrameIndexByPhaseT(t: number, reverse: boolean, frameCount: number) {
+  if (frameCount <= 1) return 0;
+  const clamped = Math.max(0, Math.min(1, t));
+  const takeoffT = reverse ? 1 - clamped : clamped;
+  return Math.floor(takeoffT * (frameCount - 1));
+}
 
 function drawPathGuide(
   ctx: CanvasRenderingContext2D,
   canvas: HTMLCanvasElement,
   path: PathKeyframe[],
   progress: number,
+  opts?: { showLine?: boolean; showPoints?: boolean },
 ) {
+  const showLine = opts?.showLine ?? true;
+  const showPoints = opts?.showPoints ?? true;
   const px = (x: number) => x * canvas.width;
   const py = (y: number) => y * canvas.height;
 
-  ctx.beginPath();
-  for (let i = 0; i <= PATH_LINE_STEPS; i++) {
-    const { x, y } = lerpPath(path, i / PATH_LINE_STEPS);
-    if (i === 0) ctx.moveTo(px(x), py(y));
-    else ctx.lineTo(px(x), py(y));
-  }
-  ctx.strokeStyle = "rgba(255,200,120,0.35)";
-  ctx.lineWidth = 2;
-  ctx.setLineDash([8, 6]);
-  ctx.stroke();
-  ctx.setLineDash([]);
-
-  if (progress > 0) {
+  if (showLine) {
     ctx.beginPath();
-    const steps = Math.max(2, Math.ceil(PATH_LINE_STEPS * progress));
-    for (let i = 0; i <= steps; i++) {
-      const { x, y } = lerpPath(path, (i / steps) * progress);
+    for (let i = 0; i <= PATH_LINE_STEPS; i++) {
+      const { x, y } = lerpPath(path, i / PATH_LINE_STEPS);
       if (i === 0) ctx.moveTo(px(x), py(y));
       else ctx.lineTo(px(x), py(y));
     }
-    ctx.strokeStyle = "rgba(255,180,60,0.75)";
-    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = "rgba(255,200,120,0.35)";
+    ctx.lineWidth = 2;
+    ctx.setLineDash([8, 6]);
     ctx.stroke();
+    ctx.setLineDash([]);
+
+    if (progress > 0) {
+      ctx.beginPath();
+      const steps = Math.max(2, Math.ceil(PATH_LINE_STEPS * progress));
+      for (let i = 0; i <= steps; i++) {
+        const { x, y } = lerpPath(path, (i / steps) * progress);
+        if (i === 0) ctx.moveTo(px(x), py(y));
+        else ctx.lineTo(px(x), py(y));
+      }
+      ctx.strokeStyle = "rgba(255,180,60,0.75)";
+      ctx.lineWidth = 2.5;
+      ctx.stroke();
+    }
   }
 
-  for (const kf of path) {
-    ctx.beginPath();
-    ctx.arc(px(kf.x), py(kf.y), 5, 0, Math.PI * 2);
-    ctx.fillStyle = "rgba(255,210,100,0.85)";
-    ctx.fill();
-    ctx.strokeStyle = "rgba(255,255,255,0.5)";
-    ctx.lineWidth = 1;
-    ctx.stroke();
+  if (showPoints) {
+    for (const kf of path) {
+      ctx.beginPath();
+      ctx.arc(px(kf.x), py(kf.y), 5, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(255,210,100,0.85)";
+      ctx.fill();
+      ctx.strokeStyle = "rgba(255,255,255,0.5)";
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
   }
 }
 
@@ -654,6 +723,7 @@ export default function HeroButterflyCanvas({
   progressRef,
   path = CUSTOM_BUTTERFLY_PATH,
   showPath = false,
+  showPathPoints = false,
   editorMode = false,
   editorVideoSrc,
 }: HeroButterflyCanvasProps) {
@@ -666,6 +736,21 @@ export default function HeroButterflyCanvas({
   const sittingIndex  = useRef(0);
   const wingPhase     = useRef(0);
   const facingLeftRef = useRef(true);
+  const directionFlipRef = useRef<{
+    active: boolean;
+    phase: "reverseTakeoff" | "forwardTakeoff";
+    phaseT: number;
+    fromFacingLeft: boolean;
+    toFacingLeft: boolean;
+    lockedPos: { x: number; y: number } | null;
+  }>({
+    active: false,
+    phase: "reverseTakeoff",
+    phaseT: 0,
+    fromFacingLeft: true,
+    toFacingLeft: true,
+    lockedPos: null,
+  });
   const readyRef      = useRef(false);
   const pathRef       = useRef<PathKeyframe[]>(path);
   const [editorDismissed, setEditorDismissed] = useState(false);
@@ -678,8 +763,10 @@ export default function HeroButterflyCanvas({
     let cancelled = false;
     let cancelIdle = () => {};
     const loadRest = async () => {
+      const takeoffFrameNumbers = Array.from({ length: TAKEOFF_FRAME_COUNT }, (_, i) => i + 1)
+        .filter((frameNumber, idx) => idx % TAKEOFF_FRAME_STRIDE === 0 || frameNumber === TAKEOFF_FRAME_COUNT);
       const [take, fly, sitRest] = await Promise.all([
-        Promise.all(Array.from({ length: TAKEOFF_FRAME_COUNT }, (_, i) => loadImage(takeoffFrameSrc(i + 1)))),
+        Promise.all(takeoffFrameNumbers.map((frameNumber) => loadImage(takeoffFrameSrc(frameNumber)))),
         Promise.all(Array.from({ length: FLYING_FRAME_COUNT  }, (_, i) => loadImage(flyingFrameSrc(i + 1)))),
         Promise.all(Array.from({ length: SITTING_FRAME_COUNT - FIRST_SITTING_FRAME }, (_, i) =>
           loadImage(sittingFrameSrc(FIRST_SITTING_FRAME + i + 1)))),
@@ -706,7 +793,12 @@ export default function HeroButterflyCanvas({
       const ctx    = canvas?.getContext("2d");
       if (!canvas || !ctx) return;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      if (showPath) drawPathGuide(ctx, canvas, pathKeyframes, progress);
+      if (showPath || showPathPoints) {
+        drawPathGuide(ctx, canvas, pathKeyframes, progress, {
+          showLine: showPath,
+          showPoints: showPath || showPathPoints,
+        });
+      }
       const size    = isMobile() ? MOBILE_BUTTERFLY_SIZE : BUTTERFLY_SIZE;
       ctx.save();
       ctx.translate(pos.x * canvas.width, pos.y * canvas.height);
@@ -714,7 +806,7 @@ export default function HeroButterflyCanvas({
       ctx.drawImage(img, -size / 2, -size / 2, size, size);
       ctx.restore();
     },
-    [showPath],
+    [showPath, showPathPoints],
   );
 
   useEffect(() => {
@@ -750,6 +842,7 @@ export default function HeroButterflyCanvas({
       const scrollMotion = Math.abs(progressDelta);
 
       const sitFrames = sittingFrames.current;
+      const takeFrames = takeoffFrames.current;
       const flyFrames = flyingFrames.current;
       const fallback  = sitFrames[0];
       if (!fallback) return;
@@ -758,19 +851,88 @@ export default function HeroButterflyCanvas({
       const pos = lerpPath(kfs, progress);
 
       const dx = pathHorizontalDelta(kfs, progress);
-      if (Math.abs(dx) > FLIP_DIRECTION_THRESHOLD) {
-        facingLeftRef.current = dx < 0;
-      }
-      const flipX = facingLeftRef.current;
+      const hasDirectionalSignal = Math.abs(dx) > FLIP_DIRECTION_THRESHOLD;
+      const desiredFacingLeft = hasDirectionalSignal ? dx < 0 : facingLeftRef.current;
+      const flipTransition = directionFlipRef.current;
 
       if (progress < FLYING_START_PROGRESS) {
+        flipTransition.active = false;
+        flipTransition.lockedPos = null;
         sittingIndex.current += dt * SITTING_IDLE_FPS;
         if (scrollMotion > 0) {
           sittingIndex.current += scrollMotion * SITTING_SCROLL_SCALE;
         }
+        const flipX = desiredFacingLeft;
+        facingLeftRef.current = flipX;
         drawFrame(sitFrames[Math.floor(sittingIndex.current) % sitFrames.length], pos, flipX, kfs, progress);
         return;
       }
+      const poseStage = getPoseStage(progress);
+      if (poseStage === "takeoffIn" || poseStage === "takeoffOut") {
+        flipTransition.active = false;
+        flipTransition.lockedPos = null;
+        if (takeFrames.length > 0) {
+          const reverse = poseStage === "takeoffIn";
+          const frameIndex = getTakeoffTransitionFrameIndex(progress, reverse, takeFrames.length);
+          const flipX = desiredFacingLeft;
+          facingLeftRef.current = flipX;
+          drawFrame(takeFrames[frameIndex], pos, flipX, kfs, progress);
+          return;
+        }
+        // If takeoff frames are not ready yet, fall back to sitting pose.
+      }
+      if (poseStage === "sitting") {
+        flipTransition.active = false;
+        flipTransition.lockedPos = null;
+        sittingIndex.current += dt * SITTING_IDLE_FPS;
+        if (scrollMotion > 0) {
+          sittingIndex.current += scrollMotion * SITTING_SCROLL_SCALE;
+        }
+        const flipX = desiredFacingLeft;
+        facingLeftRef.current = flipX;
+        drawFrame(sitFrames[Math.floor(sittingIndex.current) % sitFrames.length], pos, flipX, kfs, progress);
+        return;
+      }
+      // Flying stage: smooth direction change with takeoff transition:
+      // flying -> reverse takeoff -> flip -> forward takeoff -> flying.
+      if (flipTransition.active && takeFrames.length > 0) {
+        const transitionPos = flipTransition.lockedPos ?? pos;
+        flipTransition.phaseT = Math.min(
+          1,
+          flipTransition.phaseT + dt / DIRECTION_FLIP_PHASE_SECONDS,
+        );
+        if (flipTransition.phase === "reverseTakeoff") {
+          const idx = getTakeoffFrameIndexByPhaseT(flipTransition.phaseT, true, takeFrames.length);
+          drawFrame(takeFrames[idx], transitionPos, flipTransition.fromFacingLeft, kfs, progress);
+          if (flipTransition.phaseT >= 1) {
+            flipTransition.phase = "forwardTakeoff";
+            flipTransition.phaseT = 0;
+            facingLeftRef.current = flipTransition.toFacingLeft;
+          }
+          return;
+        }
+        const idx = getTakeoffFrameIndexByPhaseT(flipTransition.phaseT, false, takeFrames.length);
+        drawFrame(takeFrames[idx], transitionPos, flipTransition.toFacingLeft, kfs, progress);
+        if (flipTransition.phaseT >= 1) {
+          flipTransition.active = false;
+          flipTransition.lockedPos = null;
+          facingLeftRef.current = flipTransition.toFacingLeft;
+        }
+        return;
+      }
+
+      if (desiredFacingLeft !== facingLeftRef.current && takeFrames.length > 0) {
+        flipTransition.active = true;
+        flipTransition.phase = "reverseTakeoff";
+        flipTransition.phaseT = 0;
+        flipTransition.fromFacingLeft = facingLeftRef.current;
+        flipTransition.toFacingLeft = desiredFacingLeft;
+        flipTransition.lockedPos = pos;
+      } else {
+        facingLeftRef.current = desiredFacingLeft;
+      }
+
+      const flipX = facingLeftRef.current;
       if (flyFrames.length === 0) { drawFrame(fallback, pos, flipX, kfs, progress); return; }
 
       wingPhase.current += dt * IDLE_WING_FPS;

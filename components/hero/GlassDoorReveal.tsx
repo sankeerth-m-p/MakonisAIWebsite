@@ -190,8 +190,6 @@ export default function GlassDoorReveal({
   const leftRef = useRef<HTMLDivElement | null>(null);
   const rightRef = useRef<HTMLDivElement | null>(null);
   const closedFrostRef = useRef<HTMLDivElement | null>(null);
-  const closedLeftRef = useRef<HTMLDivElement | null>(null);
-  const closedRightRef = useRef<HTMLDivElement | null>(null);
   const leftEdgeRef = useRef<HTMLDivElement | null>(null);
   const rightEdgeRef = useRef<HTMLDivElement | null>(null);
   const textRef = useRef<HTMLDivElement | null>(null);
@@ -244,19 +242,11 @@ export default function GlassDoorReveal({
       const left = leftRef.current;
       const right = rightRef.current;
       const closedFrost = closedFrostRef.current;
-      const closedLeft = closedLeftRef.current;
-      const closedRight = closedRightRef.current;
       const video = videoRef.current;
       if (!root || !pin || !left || !right || !video) return;
 
-      gsap.set(left, { transformOrigin: "left center", opacity: 0 });
-      gsap.set(right, { transformOrigin: "right center", opacity: 0 });
-      if (closedLeft) {
-        gsap.set(closedLeft, { transformOrigin: "left center", opacity: 0 });
-      }
-      if (closedRight) {
-        gsap.set(closedRight, { transformOrigin: "right center", opacity: 0 });
-      }
+      gsap.set(left, { transformOrigin: "left center", opacity: 1 });
+      gsap.set(right, { transformOrigin: "right center", opacity: 1 });
       if (closedFrost) {
         gsap.set(closedFrost, { opacity: 1 });
       }
@@ -475,20 +465,6 @@ export default function GlassDoorReveal({
           { rotateY: SWING_ANGLE, duration: dDur, onUpdate: syncLogoMask },
           dStart,
         );
-        if (closedLeft) {
-          tl.to(
-            closedLeft,
-            { rotateY: -SWING_ANGLE, duration: dDur },
-            dStart,
-          );
-        }
-        if (closedRight) {
-          tl.to(
-            closedRight,
-            { rotateY: SWING_ANGLE, duration: dDur },
-            dStart,
-          );
-        }
       } else {
         tl.to(
           left,
@@ -499,31 +475,13 @@ export default function GlassDoorReveal({
           { xPercent: 100, duration: dDur, onUpdate: syncLogoMask },
           dStart,
         );
-        if (closedLeft) {
-          tl.to(closedLeft, { xPercent: -100, duration: dDur }, dStart);
-        }
-        if (closedRight) {
-          tl.to(closedRight, { xPercent: 100, duration: dDur }, dStart);
-        }
       }
 
-      const handoffDur = Math.max(dDur * 0.05, 0.012);
-      const overlayFadeDur = Math.max(dDur * 0.35, 0.04);
-
+      const snapDur = 0.008;
       if (closedFrost) {
-        tl.to(closedFrost, { opacity: 0, duration: handoffDur }, dStart);
+        tl.to(closedFrost, { opacity: 0, duration: snapDur }, dStart);
       }
-      if (closedLeft && closedRight) {
-        tl.to([closedLeft, closedRight], { opacity: 1, duration: handoffDur }, dStart);
-        tl.to([left, right], { opacity: 1, duration: handoffDur }, dStart);
-        tl.to(
-          [closedLeft, closedRight],
-          { opacity: 0, duration: overlayFadeDur },
-          dStart + handoffDur,
-        );
-      }
-
-      tl.to([left, right], { opacity: 0.88, duration: dDur }, dStart + handoffDur);
+      tl.to([left, right], { opacity: 0.88, duration: dDur }, dStart);
 
       if (textRef.current) {
         tl.to(textRef.current, { autoAlpha: 0, duration: dDur * 0.2 }, dStart);
@@ -773,28 +731,6 @@ export default function GlassDoorReveal({
               }}
             />
           </div>
-          <div
-            ref={closedLeftRef}
-            aria-hidden="true"
-            style={{
-              ...doorBase,
-              left: 0,
-              zIndex: 3,
-              pointerEvents: "none",
-              opacity: 0,
-            }}
-          />
-          <div
-            ref={closedRightRef}
-            aria-hidden="true"
-            style={{
-              ...doorBase,
-              left: "50%",
-              zIndex: 3,
-              pointerEvents: "none",
-              opacity: 0,
-            }}
-          />
           <div
             ref={closedFrostRef}
             aria-hidden="true"
