@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { NAV_LINKS } from "@/data/sections";
 import { scrollToSection } from "@/lib/scrollToSection";
+import { registerDoorRevealTarget } from "@/lib/doorReveal";
 
 const GLASS_STYLE = {
   background: "rgba(244, 247, 251, 0.10)",
@@ -24,24 +25,38 @@ function isPastHero() {
 }
 
 export default function Navbar() {
-  const lastScrollYRef = useRef(0);
-  const [showHeader, setShowHeader] = useState(true);
   const [activeId, setActiveId] = useState("hero");
+  const [pastHero, setPastHero] = useState(false);
+  const logoRevealRef = useRef<HTMLButtonElement | null>(null);
+  const glassRevealRef = useRef<HTMLDivElement | null>(null);
+
+  // Reveal each navbar piece in sync with the hero's glass doors. Clipping the
+  // whole nav flattened rounded corners on the glass pill; per-element clips
+  // (with round on the pill) keep the final UI shape throughout the reveal.
+  useEffect(() => {
+    const unsubs: Array<() => void> = [];
+
+    if (logoRevealRef.current) {
+      unsubs.push(registerDoorRevealTarget(logoRevealRef.current));
+    }
+    if (glassRevealRef.current) {
+      unsubs.push(
+        registerDoorRevealTarget(glassRevealRef.current, { round: "0.375rem" }),
+      );
+    }
+
+    return () => {
+      unsubs.forEach((unsub) => unsub());
+    };
+  }, []);
 
   const onScroll = useCallback(() => {
     const scrollY = window.scrollY;
-    const previousScrollY = lastScrollYRef.current;
-    const scrollDelta = scrollY - previousScrollY;
+    const past = isPastHero();
+    setPastHero(past);
 
-    if (scrollY <= 12) {
-      setShowHeader(true);
-    } else if (Math.abs(scrollDelta) > 1) {
-      setShowHeader(scrollDelta < 0);
-    }
-
-    if (!isPastHero()) {
+    if (!past) {
       setActiveId("hero");
-      lastScrollYRef.current = scrollY;
       return;
     }
 
@@ -60,11 +75,9 @@ export default function Navbar() {
     }
 
     setActiveId(current);
-    lastScrollYRef.current = scrollY;
   }, []);
 
   useEffect(() => {
-    lastScrollYRef.current = window.scrollY;
     const frame = requestAnimationFrame(onScroll);
     window.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("resize", onScroll);
@@ -77,17 +90,12 @@ export default function Navbar() {
 
   return (
     <header
-      className={`fixed inset-x-0 top-0 z-50 transition-transform ${
-        showHeader ? "duration-150 ease-out" : "duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]"
-      } ${
-        showHeader
-          ? "pointer-events-auto translate-y-0"
-          : "pointer-events-none -translate-y-full"
-      }`}
+      className={`fixed   inset-x-0 top-0 ${pastHero ? "z-50" : "z-50"}`}
     >
-      <div className="makonis-container pt-4 md:pt-5">
+      <div className="makonis-container pt-4   md:pt-5">
         <nav className="flex items-center justify-between gap-4 md:h-12">
           <button
+            ref={logoRevealRef}
             type="button"
             onClick={() => scrollToSection("hero")}
             className="shrink-0 transition-opacity hover:opacity-80"
@@ -104,10 +112,11 @@ export default function Navbar() {
           </button>
 
           <div
+            ref={glassRevealRef}
             className="ml-auto flex items-center gap-1 rounded-md p-1 lg:gap-2 lg:p-1.5"
             style={GLASS_STYLE}
           >
-            <ul className="hidden items-center gap-0.5 md:flex lg:gap-1">
+            <ul className="hidden items-center  gap-0.5 md:flex lg:gap-1">
               {NAV_LINKS.map((link) => (
                 <li key={link.id}>
                   <button

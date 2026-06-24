@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import Script from "next/script";
+import { Inter, Playfair_Display } from "next/font/google";
 import localFont from "next/font/local";
+import PreloaderGate from "@/components/preloader/PreloaderGate";
 import WeatherBackground from "@/components/WeatherBackground";
 import { gradientCssVars } from "@/data/gradients";
 import "./globals.css";
@@ -19,6 +21,12 @@ const magistralLight = localFont({
   display: "block",
 });
 
+const playfair = Playfair_Display({
+  subsets: ["latin"],
+  variable: "--font-preloader-serif",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
   title: "Makonis AI",
   description: "Makonis AI Website",
@@ -32,16 +40,21 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${interDisplay.variable} ${magistralLight.variable}`}
+      className={`${interDisplay.variable} ${magistralLight.variable} ${playfair.variable}`}
       style={gradientCssVars()}
       suppressHydrationWarning
     >
+      <Script id="scroll-reset" strategy="beforeInteractive">
+        {`if("scrollRestoration" in history)history.scrollRestoration="manual";window.scrollTo(0,0);document.documentElement.scrollTop=0;document.body.scrollTop=0;`}
+      </Script>
       <body
         className="isolate min-h-screen overflow-x-clip"
         suppressHydrationWarning
       >
-        <WeatherBackground />
-        <div className="relative z-0">{children}</div>
+        <PreloaderGate>
+          <WeatherBackground />
+          <div className="relative z-0">{children}</div>
+        </PreloaderGate>
       </body>
     </html>
   );

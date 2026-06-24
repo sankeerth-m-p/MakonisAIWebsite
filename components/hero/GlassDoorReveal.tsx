@@ -7,6 +7,7 @@ import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useGSAP } from "@gsap/react";
 import HeroButterflyCanvas from "@/components/hero/HeroButterflyCanvas";
+import { publishDoorEdges } from "@/lib/doorReveal";
 
 gsap.registerPlugin(ScrollTrigger, useGSAP);
 
@@ -102,7 +103,7 @@ export default function GlassDoorReveal({
   heading,
   variant = "swing",
   scrollLength = 3,
-  showCue = false,
+  showCue = true,
   className,
   doorStartProgress = 0,
   doorScrollDistance = 1,
@@ -214,6 +215,10 @@ export default function GlassDoorReveal({
           ((logoRect.right - rightSeamX) / logoRect.width) * 100;
 
         applyLogoDoorMask(logoRef.current, leftInset, rightInset);
+
+        // Drive any out-of-tree reveal targets (e.g. the fixed Navbar) with the
+        // exact same door-edge geometry, on the same update cadence.
+        publishDoorEdges(leftSeamX, rightSeamX);
       };
 
       let rafId = 0;
@@ -672,19 +677,13 @@ export default function GlassDoorReveal({
             ref={cueRef}
             style={{
               position: "absolute",
-              left: "50%",
+              right: 24,
               bottom: 24,
-              transform: "translateX(-50%)",
               zIndex: 6,
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              gap: 2,
               color: "#ffffff",
             }}
           >
-            <p>scroll to open</p>
-            <span aria-hidden="true">&#8595;</span>
+            <p className="text-xs tracking-wide opacity-80">scroll to open</p>
           </div>
         )}
       </div>
