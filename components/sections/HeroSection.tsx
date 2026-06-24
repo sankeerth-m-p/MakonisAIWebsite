@@ -7,7 +7,8 @@ export default function HeroSection() {
       id="hero"
       className="relative  z-0"
       src="/temp%20hero4.webm"
-      scrollLength={2}
+      scrollLength={2} logoOutStartProgress={0.8} // half the logo hold time
+logoOutDistance={0.04}   
       showSmallLogo={false}
       heading={
         <div className="flex flex-col  items-center">

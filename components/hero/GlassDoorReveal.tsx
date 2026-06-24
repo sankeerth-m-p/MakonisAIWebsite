@@ -749,10 +749,10 @@ export default function GlassDoorReveal({
         {heading != null && (
           <div
             ref={textRef}
+            className="z-40"
             style={{
               position: "absolute",
               inset: 0,
-              zIndex: 5,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -763,7 +763,7 @@ export default function GlassDoorReveal({
             }}
           >
           <div className="flex flex-col  items-center">
-          <h1 className="mt-8 font-bold font-makonis-heading-bold max-w-2xl">
+          <h1 className="mt-8 font-extrabold font-makonis-heading-bold max-w-2xl">
             Where AI meets human potential.
           </h1>
         </div>
@@ -774,11 +774,11 @@ export default function GlassDoorReveal({
           heroPhrases.map((phrase, index) => (
             <div
               key={phrase.title}
+              className="z-40"
               style={{
                 position: "absolute",
                 left: "50%",
                 bottom: "20%",
-                zIndex: 6,
                 width: "min(96vw, 720px)",
                 transform: "translateX(-50%)",
                 pointerEvents: "none",
@@ -791,10 +791,10 @@ export default function GlassDoorReveal({
                 className="flex flex-col items-center text-center text-white"
                 style={{ opacity: 0, willChange: "opacity, transform" }}
               >
-                <h2 className="font-makonis-heading-bold max-w-2xl">
+                <h2 className="font-extrabold font-makonis-heading-bold max-w-2xl">
                   {phrase.title}
                 </h2>
-                <h2 className="font-makonis-heading-bold mt-2 max-w-2xl">
+                <h2 className="font-extrabold font-makonis-heading-bold mt-2 max-w-2xl">
                   {phrase.tagline}
                 </h2>
               </div>

@@ -89,7 +89,7 @@ export default function ImpactSection() {
   return (
     <section id="impact" className={gradient.impact}>
       <div ref={wrapperRef} style={{ height: `calc(90vh + ${scrollDistance}px + 8rem)` }}>
-        <div className="sticky top-0  h-[100vh] py-8 md:py-10">
+        <div className="sticky top-0  h-[calc(100vh)] md:pt-20 py-8 md:py-10">
           <div className="makonis-container flex h-full min-h-0 flex-col">
             <div className="pb-8 md:pb-10">
               <h2>Where AI makes an impact</h2>
