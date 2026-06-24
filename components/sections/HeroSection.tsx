@@ -10,7 +10,7 @@ export default function HeroSection() {
       scrollLength={2}
       heading={
         <div className="flex flex-col  items-center">
-          <h1 className="mt-8 max-w-2xl">
+          <h1 className="mt-8 font-bold max-w-2xl">
             Where AI meets human potential.
           </h1>
         </div>

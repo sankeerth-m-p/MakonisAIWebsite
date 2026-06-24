@@ -4,6 +4,12 @@ import { useEffect, useRef, useState, useCallback } from "react";
 type Weather = "clear" | "cloudy" | "rain" | "storm" | "snow" | "fog";
 type Particles = "auto" | "none" | "rain" | "storm" | "snow" | "fog";
 
+type RainParticle = { rain: 1; x: number; y: number; len: number; spd: number };
+type SnowParticle = { snow: 1; x: number; y: number; r: number; spd: number; sway: number; sw: number };
+type FogParticle = { fog: 1; x: number; y: number; w: number; h: number; spd: number; op: number };
+type StarParticle = { star: 1; x: number; y: number; r: number; tw: number; tws: number };
+type WeatherParticle = RainParticle | SnowParticle | FogParticle | StarParticle;
+
 const PLACES = [
   { label: "India · Bengaluru", lat: 12.97, lon: 77.59 },
   { label: "UK · London", lat: 51.51, lon: -0.13 },
@@ -19,25 +25,25 @@ const WEATHERS: Weather[] = ["clear", "cloudy", "rain", "storm", "snow", "fog"];
 /* ===== LOOK CONFIG — tweak colors/sizes here ===== */
 const CONFIG = {
   skyKeyframes: [
-    { h: 0, c: ["#05070f", "#0a1026", "#161d38"] },
-    { h: 5, c: ["#1a2247", "#3b3560", "#7a4f63"] },
-    { h: 7, c: ["#5b7fb9", "#eda47e", "#ffd9a6"] },
-    { h: 12, c: ["#2f80ed", "#69b1ff", "#cfeaff"] },
-    { h: 17, c: ["#3a6fb0", "#f0a368", "#ffd6a0"] },
-    { h: 19, c: ["#2a2f5e", "#7c4a72", "#dd8a66"] },
-    { h: 21, c: ["#0b1330", "#16203f", "#2a3252"] },
-    { h: 24, c: ["#05070f", "#0a1026", "#161d38"] },
+    { h: 0, c: ["#060a18", "#0e1630", "#1a2450"] },
+    { h: 5, c: ["#1a2050", "#3a3868", "#8a5878"] },
+    { h: 7, c: ["#4a68b8", "#e88878", "#ffc898"] },
+    { h: 12, c: ["#2878f0", "#5cb0ff", "#b8e4ff"] },
+    { h: 17, c: ["#3a68b8", "#e89058", "#ffc088"] },
+    { h: 19, c: ["#2830a0", "#a05088", "#e07858"] },
+    { h: 21, c: ["#0c1238", "#182848", "#283868"] },
+    { h: 24, c: ["#060a18", "#0e1630", "#1a2450"] },
   ] as { h: number; c: string[] }[],
   weather: {
-    clear: { tint: null, mix: 0, darken: 1.0, light: 1.0, particles: "auto" as Particles },
-    cloudy: { tint: "#9aa6b5", mix: 0.4, darken: 0.92, light: 0.45, particles: "none" as Particles },
-    rain: { tint: "#5a7287", mix: 0.6, darken: 0.8, light: 0, particles: "rain" as Particles },
-    storm: { tint: "#2e3a4d", mix: 0.7, darken: 0.6, light: 0, particles: "storm" as Particles },
-    snow: { tint: "#c4cfe0", mix: 0.45, darken: 0.98, light: 0.2, particles: "snow" as Particles },
-    fog: { tint: "#b9c0c4", mix: 0.58, darken: 0.95, light: 0, particles: "fog" as Particles },
+    clear: { tint: null, mix: 0, darken: 1.0, light: 0.88, particles: "auto" as Particles },
+    cloudy: { tint: "#8a96a8", mix: 0.36, darken: 0.93, light: 0.38, particles: "none" as Particles },
+    rain: { tint: "#4a6880", mix: 0.52, darken: 0.85, light: 0, particles: "rain" as Particles },
+    storm: { tint: "#283848", mix: 0.62, darken: 0.68, light: 0, particles: "storm" as Particles },
+    snow: { tint: "#b8c8e0", mix: 0.4, darken: 0.96, light: 0.18, particles: "snow" as Particles },
+    fog: { tint: "#a8b4c0", mix: 0.5, darken: 0.92, light: 0, particles: "fog" as Particles },
   } as Record<Weather, { tint: string | null; mix: number; darken: number; light: number; particles: Particles }>,
-  sun: { color: "#fff2c2", glow: "#ffdf8a", radius: 34 },
-  moon: { color: "#f3f6ff", glow: "#cdd8ff", radius: 22 },
+  sun: { color: "#fff6d8", glow: "#ffd070", radius: 30 },
+  moon: { color: "#f0f4ff", glow: "#a8b8ff", radius: 19 },
   horizon: 0.72,
   topPad: 0.12,
 };
@@ -380,16 +386,19 @@ export default function WeatherBackground({
   const [customLon, setCustomLon] = useState("");
 
   const hourRef = useRef(hour);
-  hourRef.current = hour;
   const weatherRef = useRef(weather);
-  weatherRef.current = weather;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const flashRef = useRef<HTMLDivElement>(null);
   const rebuildRef = useRef<() => void>(() => {});
   const locationOverrideRef = useRef(locationOverride);
-  locationOverrideRef.current = locationOverride;
   const weatherLockedRef = useRef(weatherLocked);
-  weatherLockedRef.current = weatherLocked;
+
+  useEffect(() => {
+    hourRef.current = hour;
+    weatherRef.current = weather;
+    locationOverrideRef.current = locationOverride;
+    weatherLockedRef.current = weatherLocked;
+  }, [hour, weather, locationOverride, weatherLocked]);
 
   const notifyLocation = useCallback(() => {
     window.dispatchEvent(new Event("wb:location"));
@@ -488,52 +497,52 @@ export default function WeatherBackground({
       H = 0,
       raf = 0,
       lt = 0;
-    let particles: any[] = [];
+    let particles: WeatherParticle[] = [];
     const rnd = (a: number, b: number) => a + Math.random() * (b - a);
 
     const build = () => {
       const kind = CONFIG.weather[weatherRef.current].particles;
       particles = [];
       if (kind === "rain" || kind === "storm")
-        for (let i = 0; i < (kind === "storm" ? 320 : 200); i++)
+        for (let i = 0; i < (kind === "storm" ? 270 : 170); i++)
           particles.push({
             rain: 1,
             x: rnd(0, W),
             y: rnd(0, H),
-            len: rnd(12, 26),
-            spd: rnd(9, 16),
+            len: rnd(11, 22),
+            spd: rnd(8, 14),
           });
       if (kind === "snow")
-        for (let i = 0; i < 140; i++)
+        for (let i = 0; i < 115; i++)
           particles.push({
             snow: 1,
             x: rnd(0, W),
             y: rnd(0, H),
-            r: rnd(1.5, 4),
-            spd: rnd(0.6, 1.8),
+            r: rnd(1.2, 3.2),
+            spd: rnd(0.5, 1.5),
             sway: rnd(0, 6.28),
-            sw: rnd(0.01, 0.03),
+            sw: rnd(0.01, 0.025),
           });
       if (kind === "fog")
-        for (let i = 0; i < 7; i++)
+        for (let i = 0; i < 6; i++)
           particles.push({
             fog: 1,
             x: rnd(-200, W),
-            y: rnd(H * 0.1, H * 0.55),
-            w: rnd(220, 420),
-            h: rnd(70, 130),
-            spd: rnd(0.15, 0.4),
-            op: rnd(0.12, 0.22),
+            y: rnd(H * 0.1, H * 0.52),
+            w: rnd(240, 440),
+            h: rnd(75, 125),
+            spd: rnd(0.12, 0.32),
+            op: rnd(0.09, 0.17),
           });
       if (kind === "auto")
-        for (let i = 0; i < 160; i++)
+        for (let i = 0; i < 125; i++)
           particles.push({
             star: 1,
             x: rnd(0, W),
             y: rnd(0, H * 0.85),
-            r: rnd(0.4, 1.6),
+            r: rnd(0.35, 1.3),
             tw: rnd(0, 6.28),
-            tws: rnd(0.02, 0.06),
+            tws: rnd(0.015, 0.045),
           });
     };
     rebuildRef.current = build;
@@ -566,7 +575,8 @@ export default function WeatherBackground({
         r = body.radius;
       const g = ctx.createRadialGradient(x, y, 0, x, y, r * 6);
       const gl = parseHex(body.glow);
-      g.addColorStop(0, `rgba(${gl.join(",")},${0.55 * ls})`);
+      g.addColorStop(0, `rgba(${gl.join(",")},${0.42 * ls})`);
+      g.addColorStop(0.5, `rgba(${gl.join(",")},${0.1 * ls})`);
       g.addColorStop(1, `rgba(${gl.join(",")},0)`);
       ctx.fillStyle = g;
       ctx.beginPath();
@@ -588,9 +598,9 @@ export default function WeatherBackground({
       drawLight();
       const starFade = Math.max(0, 1 - daylight(h) * 1.6);
       for (const p of particles) {
-        if (p.rain) {
-          ctx.strokeStyle = "rgba(200,220,255,.5)";
-          ctx.lineWidth = 1.3;
+        if ("rain" in p) {
+          ctx.strokeStyle = "rgba(190,210,255,.42)";
+          ctx.lineWidth = 1.0;
           ctx.beginPath();
           ctx.moveTo(p.x, p.y);
           ctx.lineTo(p.x - 2, p.y + p.len);
@@ -601,7 +611,7 @@ export default function WeatherBackground({
             p.y = -p.len;
             p.x = rnd(0, W);
           }
-        } else if (p.fog) {
+        } else if ("fog" in p) {
           const cg = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.w / 2);
           cg.addColorStop(0, `rgba(210,214,220,${p.op})`);
           cg.addColorStop(1, "rgba(210,214,220,0)");
@@ -611,16 +621,16 @@ export default function WeatherBackground({
           ctx.fill();
           p.x += p.spd;
           if (p.x - p.w / 2 > W) p.x = -p.w / 2;
-        } else if (p.star) {
+        } else if ("star" in p) {
           if (starFade > 0.02) {
             p.tw += p.tws;
-            ctx.fillStyle = `rgba(255,255,255,${(0.35 + Math.abs(Math.sin(p.tw)) * 0.55) * starFade})`;
+            ctx.fillStyle = `rgba(255,255,255,${(0.3 + Math.abs(Math.sin(p.tw)) * 0.45) * starFade})`;
             ctx.beginPath();
             ctx.arc(p.x, p.y, p.r, 0, 6.28);
             ctx.fill();
           }
-        } else if (p.snow) {
-          ctx.fillStyle = "rgba(255,255,255,.9)";
+        } else if ("snow" in p) {
+          ctx.fillStyle = "rgba(255,255,255,.72)";
           ctx.beginPath();
           ctx.arc(p.x, p.y, p.r ?? 1, 0, 6.28);
           ctx.fill();
@@ -635,11 +645,11 @@ export default function WeatherBackground({
       }
       if (kind === "storm" && !reduce) {
         lt--;
-        if (lt <= 0 && Math.random() < 0.012) {
+        if (lt <= 0 && Math.random() < 0.01) {
           flash.style.transition = "none";
-          flash.style.opacity = "0.8";
+          flash.style.opacity = "0.55";
           requestAnimationFrame(() => {
-            flash.style.transition = "opacity .55s ease";
+            flash.style.transition = "opacity .6s ease";
             flash.style.opacity = "0";
           });
           lt = 60;
@@ -661,7 +671,10 @@ export default function WeatherBackground({
   }, [weather]);
 
   const stops = applyWeather(baseSky(hour), weather);
-  const skyBg = `linear-gradient(180deg, ${stops[0]} 0%, ${stops[1]} 55%, ${stops[2]} 100%)`;
+  const skyBg = [
+    `radial-gradient(ellipse 85% 42% at 50% 0%, ${stops[1]}38 0%, transparent 52%)`,
+    `linear-gradient(180deg, ${stops[0]} 0%, ${stops[1]} 52%, ${stops[2]} 100%)`,
+  ].join(", ");
 
   return (
     <>

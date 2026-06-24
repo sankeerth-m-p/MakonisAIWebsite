@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# large source media (use webm/png assets in repo instead)
+public/butterfly/butterfly1.mov

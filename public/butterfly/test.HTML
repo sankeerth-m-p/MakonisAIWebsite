@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<body>
+
+<input type="file" id="f" accept="video/*">
+<input type="number" id="fps" placeholder="Enter FPS (e.g. 24)" value="24">
+<button id="start">Start Extraction</button>
+
+<canvas id="c"></canvas>
+<div id="log"></div>
+
+<script>
+document.getElementById('start').onclick = async () => {
+  const file = document.getElementById('f').files[0];
+  const fps = parseInt(document.getElementById('fps').value);
+
+  if (!file || !fps) {
+    alert("Select video and FPS");
+    return;
+  }
+
+  // Ask user to pick folder
+  const dirHandle = await window.showDirectoryPicker();
+
+  const url = URL.createObjectURL(file);
+  const video = document.createElement('video');
+  video.src = url;
+  video.muted = true;
+
+  await new Promise(r => video.onloadedmetadata = r);
+
+  const canvas = document.getElementById('c');
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  const ctx = canvas.getContext('2d');
+
+  const total = Math.floor(video.duration * fps);
+  document.getElementById('log').textContent = `Total frames: ${total}`;
+
+  for (let i = 0; i < total; i++) {
+    video.currentTime = i / fps;
+    await new Promise(r => video.onseeked = r);
+
+    ctx.drawImage(video, 0, 0);
+
+    const blob = await new Promise(r => canvas.toBlob(r, 'image/png'));
+
+    // Create file inside selected folder
+    const fileHandle = await dirHandle.getFileHandle(
+      `frame_${String(i+1).padStart(4,'0')}.png`,
+      { create: true }
+    );
+
+    const writable = await fileHandle.createWritable();
+    await writable.write(blob);
+    await writable.close();
+
+    document.getElementById('log').textContent =
+      `Saved ${i+1}/${total}`;
+  }
+
+  alert("Done! All frames saved in folder.");
+};
+</script>
+
+</body>
+</html>

@@ -8,8 +8,6 @@ import ServiceModelOpsSection from "@/components/sections/ServiceModelOpsSection
 import ProcessSection from "@/components/sections/ProcessSection";
 import ImpactSection from "@/components/sections/ImpactSection";
 import WhyAISection from "@/components/sections/WhyAISection";
-import WeatherSection from "@/components/sections/WeatherSection";
-import { SECTION_GRADIENT_CLASS as gradient } from "@/data/gradients";
 export default function Home() {
   return (
     <>

@@ -83,10 +83,10 @@ export default function ProcessSection() {
 
         <div className="grid flex-1 gap-12    lg:grid-cols-[1fr_0.9fr] lg:items-start lg:gap-10">
           {/* image container area for image movement */}
-          <div className="flex h-full flex-col justify-center gap-10   md:gap-12">
+          <div className="relative z-0 flex h-full flex-col justify-center gap-10 md:gap-12">
             {/* this is the part that moves up and down toward the pointer */}
             <div
-              className="relative aspect-[5/3] overflow-hidden transition-transform duration-500 ease-out will-change-transform"
+              className="relative aspect-[5/3] w-[94%] overflow-hidden transition-transform duration-500 ease-out will-change-transform"
               style={{ transform: `translate3d(0, ${imageTranslate}px, 0)` }}
             >
               <Image
@@ -116,7 +116,7 @@ export default function ProcessSection() {
           </div>
 
           {/* Accordion container - moves opposite to the pointer */}
-          <div className="  h-full">
+          <div className="relative z-10 h-full">
             <ol
               className="flex   min-h-[360px] flex-col transition-transform duration-500 ease-out will-change-transform"
               style={{ transform: `translate3d(0, ${accordionTranslate}px, 0)` }}

@@ -1,5 +1,3 @@
-import WeatherPanel from "@/components/WeatherPanel";
-
 export default function WeatherSection() {
   return (
     <section

@@ -4,10 +4,8 @@ export type NavLink = {
 };
 
 export const NAV_LINKS: NavLink[] = [
-  { id: "hero", label: "Home" },
-  { id: "weather", label: "Weather" },
   { id: "intro", label: "Intro" },
-  { id: "services", label: "Services" },
+  { id: "service-custom-ai", label: "Services" },
   { id: "process", label: "Process" },
   { id: "impact", label: "Impact" },
   { id: "why-ai", label: "Why AI" },

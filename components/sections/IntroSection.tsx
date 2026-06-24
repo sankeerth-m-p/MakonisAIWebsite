@@ -4,7 +4,7 @@ export default function IntroSection() {
   return (
     <section
       id="intro"
-      className={`${gradient.intro} relative a1  flex min-h-screen flex-col justify-end overflow-hidden pb-24 md:pb-32 lg:pb-40`}
+      className={`${gradient.intro} relative   flex min-h-screen flex-col justify-end overflow-hidden pb-24 md:pb-32 lg:pb-40`}
     >
       <div className="makonis-container relative z-10">
         <div className="mx-auto max-w-3xl text-center">
