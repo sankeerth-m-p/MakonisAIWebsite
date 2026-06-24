@@ -76,7 +76,6 @@ const DEFAULT_HERO_PHRASES: HeroPhrase[] = [
   },
 ];
 
-const SEAM = "rgba(255,236,214,0.30)";
 const FROST = "rgba(244,247,251,0.10)";
 const SWING_ANGLE = 118;
 
@@ -95,6 +94,68 @@ function applyLogoDoorMask(
 function seamCenterX(el: HTMLElement): number {
   const rect = el.getBoundingClientRect();
   return rect.left + rect.width / 2;
+}
+
+function animateHeroPhrase(el: HTMLElement, localProgress: number) {
+  let opacity = 0;
+  let y = 0;
+
+  if (localProgress <= 0.4) {
+    const p = localProgress / 0.4;
+    opacity = 0.25 + p * 0.75;
+    y = 20 - 20 * p;
+  } else if (localProgress <= 0.6) {
+    opacity = 1;
+    y = 0;
+  } else {
+    const p = (localProgress - 0.6) / 0.4;
+    opacity = 1 - p;
+    y = p * 20;
+  }
+
+  el.style.opacity = String(opacity);
+  el.style.transform = `translateY(${y}px)`;
+}
+
+function syncHeroPhrases(
+  progress: number,
+  phraseEls: (HTMLDivElement | null)[],
+  phraseStart: number,
+  phraseEnd: number,
+) {
+  const count = phraseEls.length;
+  if (count === 0) return;
+
+  phraseEls.forEach((el) => {
+    if (!el) return;
+    el.style.opacity = "0";
+    el.style.transform = "translateY(0px)";
+  });
+
+  if (progress < phraseStart || progress >= phraseEnd) return;
+
+  const regionProgress = (progress - phraseStart) / (phraseEnd - phraseStart);
+  const segment = 1 / count;
+
+  for (let index = 0; index < count; index++) {
+    const segStart = index * segment;
+    const segEnd = (index + 1) / count;
+    const isLast = index === count - 1;
+
+    if (
+      regionProgress >= segStart &&
+      (isLast ? regionProgress <= segEnd : regionProgress < segEnd)
+    ) {
+      const el = phraseEls[index];
+      if (el) {
+        animateHeroPhrase(
+          el,
+          (regionProgress - segStart) / (segEnd - segStart),
+        );
+      }
+      break;
+    }
+  }
 }
 
 export default function GlassDoorReveal({
@@ -128,6 +189,9 @@ export default function GlassDoorReveal({
   const pinRef = useRef<HTMLDivElement | null>(null);
   const leftRef = useRef<HTMLDivElement | null>(null);
   const rightRef = useRef<HTMLDivElement | null>(null);
+  const closedFrostRef = useRef<HTMLDivElement | null>(null);
+  const closedLeftRef = useRef<HTMLDivElement | null>(null);
+  const closedRightRef = useRef<HTMLDivElement | null>(null);
   const leftEdgeRef = useRef<HTMLDivElement | null>(null);
   const rightEdgeRef = useRef<HTMLDivElement | null>(null);
   const textRef = useRef<HTMLDivElement | null>(null);
@@ -179,11 +243,23 @@ export default function GlassDoorReveal({
       const pin = pinRef.current;
       const left = leftRef.current;
       const right = rightRef.current;
+      const closedFrost = closedFrostRef.current;
+      const closedLeft = closedLeftRef.current;
+      const closedRight = closedRightRef.current;
       const video = videoRef.current;
       if (!root || !pin || !left || !right || !video) return;
 
-      gsap.set(left, { transformOrigin: "left center" });
-      gsap.set(right, { transformOrigin: "right center" });
+      gsap.set(left, { transformOrigin: "left center", opacity: 0 });
+      gsap.set(right, { transformOrigin: "right center", opacity: 0 });
+      if (closedLeft) {
+        gsap.set(closedLeft, { transformOrigin: "left center", opacity: 0 });
+      }
+      if (closedRight) {
+        gsap.set(closedRight, { transformOrigin: "right center", opacity: 0 });
+      }
+      if (closedFrost) {
+        gsap.set(closedFrost, { opacity: 1 });
+      }
 
       // Normalize each sub-range into the 0..1 timeline space.
       const dStart = doorStartProgress / totalUnits;
@@ -194,9 +270,8 @@ export default function GlassDoorReveal({
       const lOut = logoOutDistance / totalUnits;
       const sStart = smallLogoStart / totalUnits;
       const sIn = smallLogoInDistance / totalUnits;
-      const phraseCycle = resolvedPhraseCycle / totalUnits;
-      const phraseFadeIn = phraseCycle * 0.22;
-      const phraseFadeOut = phraseCycle * 0.22;
+      const phraseStartProgress = phrasesStart / totalUnits;
+      const phraseEndProgress = phrasesEnd / totalUnits;
 
       const syncLogoMask = () => {
         if (!logoRef.current || !leftEdgeRef.current || !rightEdgeRef.current) {
@@ -223,8 +298,10 @@ export default function GlassDoorReveal({
 
       let rafId = 0;
       let lastSeekTime = 0;
-      let seekTime = video.currentTime || 0;
+      let seekTime = 0;
+      let scrollEngaged = false;
       const glide = Math.min(Math.max(videoGlide, 0.01), 1);
+      const HERO_IDLE_EPS = 0.001;
 
       const computeTargetTime = (progress: number): number => {
         if (!video.duration) return 0;
@@ -236,9 +313,66 @@ export default function GlassDoorReveal({
         return Math.min(Math.max(videoProgress, 0), 1) * video.duration;
       };
 
+      const engageScroll = (progress: number) => {
+        if (scrollEngaged) return;
+        scrollEngaged = true;
+        video.loop = false;
+        video.pause();
+        seekTime = 0;
+        video.currentTime = 0;
+        targetTimeRef.current = computeTargetTime(progress);
+        videoProgressRef.current = 0;
+      };
+
+      const disengageScroll = () => {
+        if (!scrollEngaged) return;
+        scrollEngaged = false;
+        seekTime = 0;
+        targetTimeRef.current = 0;
+        videoProgressRef.current = 0;
+        video.loop = true;
+        void video.play().catch(() => {});
+      };
+
+      const isAtHeroStart = (progress: number) =>
+        progress <= HERO_IDLE_EPS && window.scrollY <= 1;
+
+      const canAutoplay = () => {
+        if (!document.documentElement.classList.contains("preloader-active")) {
+          return true;
+        }
+        return document.querySelector(".preloader-content--visible") !== null;
+      };
+
+      const tryAutoplay = () => {
+        if (scrollEngaged || !video.duration || !canAutoplay()) {
+          return;
+        }
+        video.muted = true;
+        video.loop = true;
+        if (video.paused) {
+          void video.play().catch(() => {});
+        }
+      };
+
+      const onVideoReady = () => tryAutoplay();
+      video.addEventListener("loadeddata", onVideoReady);
+      video.addEventListener("canplay", onVideoReady);
+      if (video.readyState >= 2) onVideoReady();
+
+      const onContentReady = () => tryAutoplay();
+      window.addEventListener("makonis:content-ready", onContentReady);
+
       const rafLoop = () => {
         rafId = window.requestAnimationFrame(rafLoop);
         if (!video.duration) return;
+
+        if (!scrollEngaged) {
+          // Butterfly stays at t=0 while the video loops freely in the background.
+          videoProgressRef.current = 0;
+          tryAutoplay();
+          return;
+        }
 
         const desired = targetTimeRef.current;
         seekTime += (desired - seekTime) * glide;
@@ -274,11 +408,59 @@ export default function GlassDoorReveal({
           anticipatePin: 1,
           invalidateOnRefresh: true,
           onUpdate: (self) => {
-            targetTimeRef.current = computeTargetTime(self.progress);
+            if (isAtHeroStart(self.progress)) {
+              disengageScroll();
+            } else if (scrollEngaged) {
+              targetTimeRef.current = computeTargetTime(self.progress);
+            }
             syncLogoMask();
+            if (showHeroPhrases) {
+              syncHeroPhrases(
+                self.progress,
+                phraseRefs.current,
+                phraseStartProgress,
+                phraseEndProgress,
+              );
+            }
           },
         },
       });
+
+      const engageFromUser = () => {
+        const progress = tl.scrollTrigger?.progress ?? 0;
+        if (isAtHeroStart(progress)) return;
+        engageScroll(progress);
+      };
+
+      const onUserScrollIntent = () => {
+        if (!scrollEngaged) engageFromUser();
+      };
+
+      const scrollKeys = new Set([
+        "ArrowDown",
+        "ArrowUp",
+        "PageDown",
+        "PageUp",
+        " ",
+        "Home",
+        "End",
+      ]);
+      const onKeyDown = (e: KeyboardEvent) => {
+        if (scrollKeys.has(e.key)) onUserScrollIntent();
+      };
+
+      const onScrollEngage = () => {
+        if (!scrollEngaged && window.scrollY > 0) engageFromUser();
+        if (scrollEngaged && window.scrollY <= 1) {
+          const progress = tl.scrollTrigger?.progress ?? 0;
+          if (isAtHeroStart(progress)) disengageScroll();
+        }
+      };
+
+      window.addEventListener("wheel", onUserScrollIntent, { passive: true });
+      window.addEventListener("touchmove", onUserScrollIntent, { passive: true });
+      window.addEventListener("keydown", onKeyDown);
+      window.addEventListener("scroll", onScrollEngage, { passive: true });
 
       // Lock the timeline length to exactly 1.0 so nothing gets re-stretched.
       tl.to({}, { duration: 1 }, 0);
@@ -293,6 +475,20 @@ export default function GlassDoorReveal({
           { rotateY: SWING_ANGLE, duration: dDur, onUpdate: syncLogoMask },
           dStart,
         );
+        if (closedLeft) {
+          tl.to(
+            closedLeft,
+            { rotateY: -SWING_ANGLE, duration: dDur },
+            dStart,
+          );
+        }
+        if (closedRight) {
+          tl.to(
+            closedRight,
+            { rotateY: SWING_ANGLE, duration: dDur },
+            dStart,
+          );
+        }
       } else {
         tl.to(
           left,
@@ -303,9 +499,31 @@ export default function GlassDoorReveal({
           { xPercent: 100, duration: dDur, onUpdate: syncLogoMask },
           dStart,
         );
+        if (closedLeft) {
+          tl.to(closedLeft, { xPercent: -100, duration: dDur }, dStart);
+        }
+        if (closedRight) {
+          tl.to(closedRight, { xPercent: 100, duration: dDur }, dStart);
+        }
       }
 
-      tl.to([left, right], { opacity: 0.88, duration: dDur }, dStart);
+      const handoffDur = Math.max(dDur * 0.05, 0.012);
+      const overlayFadeDur = Math.max(dDur * 0.35, 0.04);
+
+      if (closedFrost) {
+        tl.to(closedFrost, { opacity: 0, duration: handoffDur }, dStart);
+      }
+      if (closedLeft && closedRight) {
+        tl.to([closedLeft, closedRight], { opacity: 1, duration: handoffDur }, dStart);
+        tl.to([left, right], { opacity: 1, duration: handoffDur }, dStart);
+        tl.to(
+          [closedLeft, closedRight],
+          { opacity: 0, duration: overlayFadeDur },
+          dStart + handoffDur,
+        );
+      }
+
+      tl.to([left, right], { opacity: 0.88, duration: dDur }, dStart + handoffDur);
 
       if (textRef.current) {
         tl.to(textRef.current, { autoAlpha: 0, duration: dDur * 0.2 }, dStart);
@@ -346,41 +564,27 @@ export default function GlassDoorReveal({
         );
       }
 
-      if (showHeroPhrases) {
-        heroPhrases.forEach((_, index) => {
-          const phraseEl = phraseRefs.current[index];
-          if (!phraseEl) return;
-
-          const phraseStart =
-            phrasesStart / totalUnits + index * phraseCycle;
-
-          gsap.set(phraseEl, { opacity: 0 });
-
-          tl.to(
-            phraseEl,
-            {
-              opacity: 1,
-              ease: "power2.out",
-              duration: phraseFadeIn,
-            },
-            phraseStart,
-          ).to(
-            phraseEl,
-            {
-              opacity: 0,
-              ease: "power2.in",
-              duration: phraseFadeOut,
-            },
-            phraseStart + phraseCycle - phraseFadeOut,
-          );
-        });
-      }
-
       if (tl.scrollTrigger) {
         syncLogoMask();
+        if (showHeroPhrases) {
+          syncHeroPhrases(
+            tl.scrollTrigger.progress,
+            phraseRefs.current,
+            phraseStartProgress,
+            phraseEndProgress,
+          );
+        }
       }
 
       return () => {
+        video.removeEventListener("loadeddata", onVideoReady);
+        video.removeEventListener("canplay", onVideoReady);
+        window.removeEventListener("makonis:content-ready", onContentReady);
+        window.removeEventListener("wheel", onUserScrollIntent);
+        window.removeEventListener("touchmove", onUserScrollIntent);
+        window.removeEventListener("keydown", onKeyDown);
+        window.removeEventListener("scroll", onScrollEngage);
+        video.pause();
         window.cancelAnimationFrame(rafId);
       };
     },
@@ -410,21 +614,27 @@ export default function GlassDoorReveal({
         heroPhrases,
         resolvedPhraseCycle,
         phrasesStart,
+        phrasesEnd,
       ],
     },
   );
+
+  const frostStyle: CSSProperties = {
+    background: FROST,
+    WebkitBackdropFilter: "blur(16px) saturate(118%) brightness(1.02)",
+    backdropFilter: "blur(16px) saturate(118%) brightness(1.02)",
+  };
 
   const doorBase: CSSProperties = {
     position: "absolute",
     top: 0,
     bottom: 0,
     width: "50%",
-    background: FROST,
-    WebkitBackdropFilter: "blur(16px) saturate(118%) brightness(1.02)",
-    backdropFilter: "blur(16px) saturate(118%) brightness(1.02)",
+    ...frostStyle,
     backfaceVisibility: "hidden",
     WebkitBackfaceVisibility: "hidden",
     willChange: "transform, opacity",
+    transformStyle: "preserve-3d",
   };
 
   return (
@@ -458,6 +668,7 @@ export default function GlassDoorReveal({
           muted
           playsInline
           preload="auto"
+          loop
           aria-hidden="true"
           style={{
             position: "absolute",
@@ -534,15 +745,7 @@ export default function GlassDoorReveal({
             pointerEvents: "none",
           }}
         >
-          <div
-            ref={leftRef}
-            style={{
-              ...doorBase,
-              left: 0,
-              borderRight: `0.5px solid ${SEAM}`,
-              transformStyle: "preserve-3d",
-            }}
-          >
+          <div ref={leftRef} style={{ ...doorBase, left: 0 }}>
             <div
               ref={leftEdgeRef}
               aria-hidden="true"
@@ -556,15 +759,7 @@ export default function GlassDoorReveal({
               }}
             />
           </div>
-          <div
-            ref={rightRef}
-            style={{
-              ...doorBase,
-              right: 0,
-              borderLeft: `0.5px solid ${SEAM}`,
-              transformStyle: "preserve-3d",
-            }}
-          >
+          <div ref={rightRef} style={{ ...doorBase, left: "50%" }}>
             <div
               ref={rightEdgeRef}
               aria-hidden="true"
@@ -578,6 +773,41 @@ export default function GlassDoorReveal({
               }}
             />
           </div>
+          <div
+            ref={closedLeftRef}
+            aria-hidden="true"
+            style={{
+              ...doorBase,
+              left: 0,
+              zIndex: 3,
+              pointerEvents: "none",
+              opacity: 0,
+            }}
+          />
+          <div
+            ref={closedRightRef}
+            aria-hidden="true"
+            style={{
+              ...doorBase,
+              left: "50%",
+              zIndex: 3,
+              pointerEvents: "none",
+              opacity: 0,
+            }}
+          />
+          <div
+            ref={closedFrostRef}
+            aria-hidden="true"
+            style={{
+              position: "absolute",
+              inset: 0,
+              ...frostStyle,
+              pointerEvents: "none",
+              zIndex: 4,
+              opacity: 1,
+              willChange: "opacity",
+            }}
+          />
         </div>
 
         {heading != null && (
@@ -623,14 +853,14 @@ export default function GlassDoorReveal({
                   phraseRefs.current[index] = el;
                 }}
                 className="flex flex-col items-center text-center text-white"
-                style={{ opacity: 0, willChange: "opacity" }}
+                style={{ opacity: 0, willChange: "opacity, transform" }}
               >
-                <h1 className="font-makonis-heading-bold max-w-2xl">
+                <h2 className="font-makonis-heading-bold max-w-2xl">
                   {phrase.title}
-                </h1>
-                <h1 className="font-makonis-heading-bold mt-2 max-w-2xl">
+                </h2>
+                <h2 className="font-makonis-heading-bold mt-2 max-w-2xl">
                   {phrase.tagline}
-                </h1>
+                </h2>
               </div>
             </div>
           ))}

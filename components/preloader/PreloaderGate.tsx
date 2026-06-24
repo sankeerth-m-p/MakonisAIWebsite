@@ -48,6 +48,7 @@ export default function PreloaderGate({ children }: PreloaderGateProps) {
       holdTimer = setTimeout(() => {
         resetScrollPosition();
         setContentReady(true);
+        window.dispatchEvent(new Event("makonis:content-ready"));
 
         exitTimer = setTimeout(() => {
           setExiting(true);

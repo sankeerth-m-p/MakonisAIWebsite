@@ -90,10 +90,10 @@ export default function Navbar() {
 
   return (
     <header
-      className={`fixed   inset-x-0 top-0 ${pastHero ? "z-50" : "z-50"}`}
+      className={`fixed inset-x-0 top-0 h-20 ${pastHero ? "z-50" : "z-50"}`}
     >
-      <div className="makonis-container pt-4   md:pt-5">
-        <nav className="flex items-center justify-between gap-4 md:h-12">
+      <div className="makonis-container flex h-full items-center">
+        <nav className="flex w-full items-center justify-between gap-4">
           <button
             ref={logoRevealRef}
             type="button"
