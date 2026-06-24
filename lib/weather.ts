@@ -9,18 +9,27 @@ export type Scene =
 
 export type Units = "metric" | "imperial";
 
-export interface WeatherResult {
+export type SceneSource = "metar" | "open-meteo" | "fallback";
+
+/** Slim API payload — only what WeatherBackground reads (+ debug fields). */
+export interface WeatherSceneResponse {
   scene: Scene;
-  city: string;
-  country: string;
-  temperature: number | null;
-  apparentTemperature: number | null;
-  humidity: number | null;
-  windSpeed: number | null;
-  weatherCode: number | null;
-  conditionText: string;
-  isDay: boolean;
-  units: Units;
+  sceneSource: SceneSource;
+  observationAgeMinutes: number | null;
+}
+
+/** Legacy shape for WeatherPanel; extended fields are optional. */
+export interface WeatherResult extends WeatherSceneResponse {
+  city?: string;
+  country?: string;
+  temperature?: number | null;
+  apparentTemperature?: number | null;
+  humidity?: number | null;
+  windSpeed?: number | null;
+  weatherCode?: number | null;
+  conditionText?: string;
+  isDay?: boolean;
+  units?: Units;
 }
 
 export function codeToScene(code: number, isDay: boolean): Scene {
