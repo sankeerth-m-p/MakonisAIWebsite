@@ -125,7 +125,7 @@ export default function ExitGlassDoorSection() {
     >
       <div
         ref={pinRef}
-        className="relative h-screen overflow-hidden isolate bg-[#0f1013]"
+        className="relative h-screen overflow-hidden isolate "
       >
         <Image
           src="/finalFrame.png"
