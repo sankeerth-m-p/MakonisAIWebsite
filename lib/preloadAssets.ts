@@ -67,10 +67,12 @@ export async function preloadAllAssets(
   const tasks: Array<() => Promise<void>> = [
     waitForFonts,
     () => preloadVideo(HERO_VIDEO_SRC),
-    preloadWeather,
     waitForWindowLoad,
     ...imageUrls.map((src) => () => preloadImage(src)),
   ];
+
+  // Warm weather cache in background — must not block loader dismiss
+  void preloadWeather();
 
   let completed = 0;
   const total = tasks.length;
