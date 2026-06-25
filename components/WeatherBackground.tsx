@@ -368,6 +368,16 @@ function ControlPanel({
 /* ===== component ===== */
 const NEUTRAL_HOUR = 12;
 
+function skyGradient(hour: number, weather: Weather): string {
+  const stops = applyWeather(baseSky(hour), weather);
+  return [
+    `radial-gradient(ellipse 85% 42% at 50% 0%, ${stops[1]}38 0%, transparent 52%)`,
+    `linear-gradient(180deg, ${stops[0]} 0%, ${stops[1]} 52%, ${stops[2]} 100%)`,
+  ].join(", ");
+}
+
+const INITIAL_SKY_BG = skyGradient(NEUTRAL_HOUR, "clear");
+
 export default function WeatherBackground({
   controls = process.env.NODE_ENV !== "production",
   units = "metric",
@@ -385,8 +395,10 @@ export default function WeatherBackground({
   const [customLat, setCustomLat] = useState("");
   const [customLon, setCustomLon] = useState("");
 
-  const hourRef = useRef(hour);
+  const targetHourRef = useRef(NEUTRAL_HOUR);
+  const displayedHourRef = useRef(NEUTRAL_HOUR);
   const weatherRef = useRef(weather);
+  const skyRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const flashRef = useRef<HTMLDivElement>(null);
   const rebuildRef = useRef<() => void>(() => {});
@@ -398,11 +410,10 @@ export default function WeatherBackground({
   }, []);
 
   useEffect(() => {
-    hourRef.current = hour;
     weatherRef.current = weather;
     locationOverrideRef.current = locationOverride;
     weatherLockedRef.current = weatherLocked;
-  }, [hour, weather, locationOverride, weatherLocked]);
+  }, [weather, locationOverride, weatherLocked]);
 
   const notifyLocation = useCallback(() => {
     window.dispatchEvent(new Event("wb:location"));
@@ -437,7 +448,9 @@ export default function WeatherBackground({
     if (!liveTime) return;
     const tick = () => {
       const d = new Date();
-      setHour(d.getHours() + d.getMinutes() / 60);
+      const h = d.getHours() + d.getMinutes() / 60;
+      targetHourRef.current = h;
+      setHour(h);
     };
     tick();
     const id = setInterval(tick, 30_000);
@@ -486,17 +499,20 @@ export default function WeatherBackground({
     setCustomLat("");
     setCustomLon("");
     const d = new Date();
-    setHour(d.getHours() + d.getMinutes() / 60);
+    const h = d.getHours() + d.getMinutes() / 60;
+    targetHourRef.current = h;
+    setHour(h);
     loadWeather({ forceLive: true, loc: null });
     notifyLocation();
   };
 
-  // canvas engine — start only after mount so sun/moon use visitor-local hour
+  // canvas engine — RAF eases displayed hour toward target and drives sky + sun/moon
   useEffect(() => {
     if (!mounted) return;
 
     const canvas = canvasRef.current!,
-      flash = flashRef.current!;
+      flash = flashRef.current!,
+      sky = skyRef.current!;
     const ctx = canvas.getContext("2d")!;
     const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
     let W = 0,
@@ -560,7 +576,7 @@ export default function WeatherBackground({
     };
 
     const drawLight = () => {
-      const h = hourRef.current,
+      const h = displayedHourRef.current,
         dl = daylight(h);
       const ls = CONFIG.weather[weatherRef.current].light;
       if (ls <= 0) return;
@@ -598,7 +614,22 @@ export default function WeatherBackground({
 
     const loop = () => {
       raf = requestAnimationFrame(loop);
-      const h = hourRef.current;
+
+      const target = targetHourRef.current;
+      let displayed = displayedHourRef.current;
+      let delta = ((target - displayed + 36) % 24) - 12;
+      if (delta === -12) delta = 12;
+      if (Math.abs(delta) <= 0.004) {
+        displayed = target;
+      } else {
+        displayed += delta * 0.1;
+        displayed = (displayed + 24) % 24;
+      }
+      displayedHourRef.current = displayed;
+
+      sky.style.background = skyGradient(displayed, weatherRef.current);
+
+      const h = displayed;
       const kind = CONFIG.weather[weatherRef.current].particles;
       ctx.clearRect(0, 0, W, H);
       drawLight();
@@ -676,19 +707,9 @@ export default function WeatherBackground({
     rebuildRef.current();
   }, [weather]);
 
-  const skyBg = mounted
-    ? (() => {
-        const stops = applyWeather(baseSky(hour), weather);
-        return [
-          `radial-gradient(ellipse 85% 42% at 50% 0%, ${stops[1]}38 0%, transparent 52%)`,
-          `linear-gradient(180deg, ${stops[0]} 0%, ${stops[1]} 52%, ${stops[2]} 100%)`,
-        ].join(", ");
-      })()
-    : "transparent";
-
   return (
     <>
-      <div className="wb-sky" style={{ background: skyBg }} />
+      <div ref={skyRef} className="wb-sky" style={{ background: INITIAL_SKY_BG }} />
       <canvas ref={canvasRef} className="wb-fx" />
       <div ref={flashRef} className="wb-flash" />
 
@@ -701,6 +722,7 @@ export default function WeatherBackground({
           customLon={customLon}
           onTimeChange={(h) => {
             setLiveTime(false);
+            targetHourRef.current = h;
             setHour(h);
           }}
           onWeatherChange={(w) => {
