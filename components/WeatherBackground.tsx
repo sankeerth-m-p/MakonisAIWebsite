@@ -366,6 +366,8 @@ function ControlPanel({
 }
 
 /* ===== component ===== */
+const NEUTRAL_HOUR = 12;
+
 export default function WeatherBackground({
   controls = process.env.NODE_ENV !== "production",
   units = "metric",
@@ -373,11 +375,9 @@ export default function WeatherBackground({
   controls?: boolean;
   units?: "metric" | "imperial";
 }) {
+  const [mounted, setMounted] = useState(false);
   const [weather, setWeather] = useState<Weather>("clear");
-  const [hour, setHour] = useState<number>(() => {
-    const d = new Date();
-    return d.getHours() + d.getMinutes() / 60;
-  });
+  const [hour, setHour] = useState<number>(NEUTRAL_HOUR);
   const [liveTime, setLiveTime] = useState(true);
   const [weatherLocked, setWeatherLocked] = useState(false);
   const [locationOverride, setLocationOverride] = useState<LocationOverride | null>(null);
@@ -392,6 +392,10 @@ export default function WeatherBackground({
   const rebuildRef = useRef<() => void>(() => {});
   const locationOverrideRef = useRef(locationOverride);
   const weatherLockedRef = useRef(weatherLocked);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     hourRef.current = hour;
@@ -487,8 +491,10 @@ export default function WeatherBackground({
     notifyLocation();
   };
 
-  // canvas engine
+  // canvas engine — start only after mount so sun/moon use visitor-local hour
   useEffect(() => {
+    if (!mounted) return;
+
     const canvas = canvasRef.current!,
       flash = flashRef.current!;
     const ctx = canvas.getContext("2d")!;
@@ -664,17 +670,21 @@ export default function WeatherBackground({
       cancelAnimationFrame(raf);
       removeEventListener("resize", resize);
     };
-  }, []);
+  }, [mounted]);
 
   useEffect(() => {
     rebuildRef.current();
   }, [weather]);
 
-  const stops = applyWeather(baseSky(hour), weather);
-  const skyBg = [
-    `radial-gradient(ellipse 85% 42% at 50% 0%, ${stops[1]}38 0%, transparent 52%)`,
-    `linear-gradient(180deg, ${stops[0]} 0%, ${stops[1]} 52%, ${stops[2]} 100%)`,
-  ].join(", ");
+  const skyBg = mounted
+    ? (() => {
+        const stops = applyWeather(baseSky(hour), weather);
+        return [
+          `radial-gradient(ellipse 85% 42% at 50% 0%, ${stops[1]}38 0%, transparent 52%)`,
+          `linear-gradient(180deg, ${stops[0]} 0%, ${stops[1]} 52%, ${stops[2]} 100%)`,
+        ].join(", ");
+      })()
+    : "transparent";
 
   return (
     <>
