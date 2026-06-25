@@ -1,4 +1,5 @@
 import Navbar from "@/components/layout/Navbar";
+import NavbarContentFade from "@/components/layout/NavbarContentFade";
 import HeroSection from "@/components/sections/HeroSection";
 import IntroSection from "@/components/sections/IntroSection";
 import ServiceCustomAISection from "@/components/sections/ServiceCustomAISection";
@@ -12,6 +13,7 @@ export default function Home() {
   return (
     <>
       <Navbar />
+      <NavbarContentFade />
       <main style={{ position: "relative" }}>
         <HeroSection />
 
