@@ -9,6 +9,7 @@ import ServiceModelOpsSection from "@/components/sections/ServiceModelOpsSection
 import ProcessSection from "@/components/sections/ProcessSection";
 import ImpactSection from "@/components/sections/ImpactSection";
 import WhyAISection from "@/components/sections/WhyAISection";
+import ExitGlassDoorSection from "@/components/sections/ExitGlassDoorSection";
 export default function Home() {
   return (
     <>
@@ -33,6 +34,7 @@ export default function Home() {
           <ProcessSection />
           <ImpactSection />
           <WhyAISection />
+          <ExitGlassDoorSection />
         </div>
       </main>
     </>

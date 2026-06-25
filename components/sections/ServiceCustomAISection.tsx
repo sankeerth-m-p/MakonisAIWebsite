@@ -6,11 +6,11 @@ export default function ServiceCustomAISection() {
   return (
     <section
       id="service-custom-ai"
-      className={`${gradient.service1} ${SNAP_SECTION_CLASS} relative isolate flex flex-col overflow-hidden pb-10`}
+      className={`${gradient.service1} ${SNAP_SECTION_CLASS} relative isolate  flex flex-col overflow-hidden pb-10`}
       style={{ background: "var(--gradient-service1)" }}
     >
-      <div className="makonis-container flex flex-col items-start">
-        <h2 className="max-w-2xl">
+      <div className="makonis-container flex flex-col   items-start">
+        <h2 className="max-w-2xl pb-1">
           Smart AI Services for
           <br />
           Intelligent Business Outcomes
