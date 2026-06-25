@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { SECTION_GRADIENT_CLASS as gradient } from "@/data/gradients";
 import { PROCESS_STEPS } from "@/data/sections";
+import { SNAP_SECTION_CLASS } from "@/lib/sectionSnap";
 
 const PROCESS_IMAGES = [
   "/process/AI_Assess%20readiness%20.webp",
@@ -68,9 +69,9 @@ export default function ProcessSection() {
   const accordionTranslate = pointerAccordionTranslate + activeCenterTranslate;
 
   return (
- <section
+    <section
       id="process"
-      className={`${gradient.process}  flex h-screen overflow-visible pb-5 pt-10`}
+      className={`${gradient.process} ${SNAP_SECTION_CLASS} flex overflow-visible pb-5`}
     >
       <div className="makonis-container flex flex-1 flex-col justify-between">
         <div className="flex flex-wrap items-end justify-between gap-8   top gorup t-10">

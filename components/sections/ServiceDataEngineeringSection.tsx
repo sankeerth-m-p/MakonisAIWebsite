@@ -1,11 +1,12 @@
 import ServiceContentLabel from "@/components/ui/ServiceContentLabel";
 import { SECTION_GRADIENT_CLASS as gradient } from "@/data/gradients";
+import { SNAP_SECTION_CLASS } from "@/lib/sectionSnap";
 
 export default function ServiceDataEngineeringSection() {
   return (
     <section
       id="service-data-engineering"
-      className={`${gradient.service3} relative isolate flex min-h-screen flex-col overflow-hidden`}
+      className={`${gradient.service3} ${SNAP_SECTION_CLASS} relative isolate flex flex-col overflow-hidden`}
       style={{ background: "var(--gradient-service3)" }}
     >
       <div className="makonis-container flex w-full flex-col pt-[30vh] pb-10 md:pt-[28vh] lg:pt-[26vh]">

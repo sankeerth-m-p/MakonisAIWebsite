@@ -370,10 +370,20 @@ const NEUTRAL_HOUR = 12;
 
 function skyGradient(hour: number, weather: Weather): string {
   const stops = applyWeather(baseSky(hour), weather);
+  return skyGradientFromStops(stops);
+}
+
+function skyGradientFromStops(stops: string[]): string {
   return [
     `radial-gradient(ellipse 85% 42% at 50% 0%, ${stops[1]}38 0%, transparent 52%)`,
     `linear-gradient(180deg, ${stops[0]} 0%, ${stops[1]} 52%, ${stops[2]} 100%)`,
   ].join(", ");
+}
+
+function blendedSkyStops(hour: number, from: Weather, to: Weather, blend: number): string[] {
+  const stopsFrom = applyWeather(baseSky(hour), from);
+  const stopsTo = applyWeather(baseSky(hour), to);
+  return lerpHex(stopsFrom, stopsTo, blend);
 }
 
 const INITIAL_SKY_BG = skyGradient(NEUTRAL_HOUR, "clear");
@@ -398,10 +408,14 @@ export default function WeatherBackground({
   const targetHourRef = useRef(NEUTRAL_HOUR);
   const displayedHourRef = useRef(NEUTRAL_HOUR);
   const weatherRef = useRef(weather);
+  const fromWeatherRef = useRef<Weather>("clear");
+  const toWeatherRef = useRef<Weather>("clear");
+  const blendRef = useRef(1);
+  const needsParticleRebuildRef = useRef(false);
+  const prevWeatherTargetRef = useRef<Weather | null>(null);
   const skyRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const flashRef = useRef<HTMLDivElement>(null);
-  const rebuildRef = useRef<() => void>(() => {});
   const locationOverrideRef = useRef(locationOverride);
   const weatherLockedRef = useRef(weatherLocked);
 
@@ -414,6 +428,22 @@ export default function WeatherBackground({
     locationOverrideRef.current = locationOverride;
     weatherLockedRef.current = weatherLocked;
   }, [weather, locationOverride, weatherLocked]);
+
+  useEffect(() => {
+    if (prevWeatherTargetRef.current === null) {
+      prevWeatherTargetRef.current = weather;
+      fromWeatherRef.current = weather;
+      toWeatherRef.current = weather;
+      blendRef.current = 1;
+      return;
+    }
+    if (prevWeatherTargetRef.current === weather) return;
+    fromWeatherRef.current = toWeatherRef.current;
+    toWeatherRef.current = weather;
+    blendRef.current = 0;
+    needsParticleRebuildRef.current = true;
+    prevWeatherTargetRef.current = weather;
+  }, [weather]);
 
   const notifyLocation = useCallback(() => {
     window.dispatchEvent(new Event("wb:location"));
@@ -461,7 +491,9 @@ export default function WeatherBackground({
     (loc: LocationOverride | null, key: string) => {
       setLocationOverride(loc);
       setLocationKey(key);
-      loadWeather({ loc });
+      setWeatherLocked(false);
+      weatherLockedRef.current = false;
+      loadWeather({ loc, forceLive: true });
       notifyLocation();
     },
     [loadWeather, notifyLocation],
@@ -515,19 +547,21 @@ export default function WeatherBackground({
       sky = skyRef.current!;
     const ctx = canvas.getContext("2d")!;
     const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const blendStep = reduce ? 0.06 : 0.02;
     let W = 0,
       H = 0,
       raf = 0,
       lt = 0;
-    let particles: WeatherParticle[] = [];
+    let particlesFrom: WeatherParticle[] = [];
+    let particlesTo: WeatherParticle[] = [];
     const rnd = (a: number, b: number) => a + Math.random() * (b - a);
 
-    const build = () => {
-      const kind = CONFIG.weather[weatherRef.current].particles;
-      particles = [];
+    const buildParticles = (w: Weather): WeatherParticle[] => {
+      const kind = CONFIG.weather[w].particles;
+      const out: WeatherParticle[] = [];
       if (kind === "rain" || kind === "storm")
         for (let i = 0; i < (kind === "storm" ? 270 : 170); i++)
-          particles.push({
+          out.push({
             rain: 1,
             x: rnd(0, W),
             y: rnd(0, H),
@@ -536,7 +570,7 @@ export default function WeatherBackground({
           });
       if (kind === "snow")
         for (let i = 0; i < 115; i++)
-          particles.push({
+          out.push({
             snow: 1,
             x: rnd(0, W),
             y: rnd(0, H),
@@ -547,7 +581,7 @@ export default function WeatherBackground({
           });
       if (kind === "fog")
         for (let i = 0; i < 6; i++)
-          particles.push({
+          out.push({
             fog: 1,
             x: rnd(-200, W),
             y: rnd(H * 0.1, H * 0.52),
@@ -558,7 +592,7 @@ export default function WeatherBackground({
           });
       if (kind === "auto")
         for (let i = 0; i < 125; i++)
-          particles.push({
+          out.push({
             star: 1,
             x: rnd(0, W),
             y: rnd(0, H * 0.85),
@@ -566,20 +600,24 @@ export default function WeatherBackground({
             tw: rnd(0, 6.28),
             tws: rnd(0.015, 0.045),
           });
+      return out;
     };
-    rebuildRef.current = build;
+
+    const rebuildParticleSets = () => {
+      particlesFrom = buildParticles(fromWeatherRef.current);
+      particlesTo = buildParticles(toWeatherRef.current);
+    };
 
     const resize = () => {
       W = canvas.width = innerWidth;
       H = canvas.height = innerHeight;
-      build();
+      rebuildParticleSets();
     };
 
-    const drawLight = () => {
+    const drawLight = (lightStrength: number) => {
+      if (lightStrength <= 0) return;
       const h = displayedHourRef.current,
         dl = daylight(h);
-      const ls = CONFIG.weather[weatherRef.current].light;
-      if (ls <= 0) return;
       const horizon = H * CONFIG.horizon,
         top = H * CONFIG.topPad;
       const isDay = dl > 0.04;
@@ -597,19 +635,92 @@ export default function WeatherBackground({
         r = body.radius;
       const g = ctx.createRadialGradient(x, y, 0, x, y, r * 6);
       const gl = parseHex(body.glow);
-      g.addColorStop(0, `rgba(${gl.join(",")},${0.42 * ls})`);
-      g.addColorStop(0.5, `rgba(${gl.join(",")},${0.1 * ls})`);
+      g.addColorStop(0, `rgba(${gl.join(",")},${0.42 * lightStrength})`);
+      g.addColorStop(0.5, `rgba(${gl.join(",")},${0.1 * lightStrength})`);
       g.addColorStop(1, `rgba(${gl.join(",")},0)`);
       ctx.fillStyle = g;
       ctx.beginPath();
       ctx.arc(x, y, r * 6, 0, 6.28);
       ctx.fill();
-      ctx.globalAlpha = ls;
+      ctx.globalAlpha = lightStrength;
       ctx.fillStyle = body.color;
       ctx.beginPath();
       ctx.arc(x, y, r, 0, 6.28);
       ctx.fill();
       ctx.globalAlpha = 1;
+    };
+
+    const drawParticleSet = (
+      particles: WeatherParticle[],
+      opacity: number,
+      hour: number,
+    ) => {
+      if (opacity <= 0.004) return;
+      const starFade = Math.max(0, 1 - daylight(hour) * 1.6);
+      for (const p of particles) {
+        if ("rain" in p) {
+          ctx.globalAlpha = opacity;
+          ctx.strokeStyle = "rgba(190,210,255,.42)";
+          ctx.lineWidth = 1.0;
+          ctx.beginPath();
+          ctx.moveTo(p.x, p.y);
+          ctx.lineTo(p.x - 2, p.y + p.len);
+          ctx.stroke();
+          p.y += p.spd * opacity;
+          p.x -= opacity;
+          if (p.y > H) {
+            if (Math.random() < opacity) {
+              p.y = -p.len;
+              p.x = rnd(0, W);
+            }
+          }
+        } else if ("fog" in p) {
+          ctx.globalAlpha = opacity;
+          const cg = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.w / 2);
+          cg.addColorStop(0, `rgba(210,214,220,${p.op})`);
+          cg.addColorStop(1, "rgba(210,214,220,0)");
+          ctx.fillStyle = cg;
+          ctx.beginPath();
+          ctx.ellipse(p.x, p.y, p.w / 2, p.h / 2, 0, 0, 6.28);
+          ctx.fill();
+          p.x += p.spd * opacity;
+          if (p.x - p.w / 2 > W) {
+            if (Math.random() < opacity) p.x = -p.w / 2;
+          }
+        } else if ("star" in p) {
+          const starOp = opacity * starFade;
+          if (starOp > 0.02) {
+            p.tw += p.tws;
+            ctx.globalAlpha = starOp;
+            ctx.fillStyle = `rgba(255,255,255,${0.3 + Math.abs(Math.sin(p.tw)) * 0.45})`;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.r, 0, 6.28);
+            ctx.fill();
+          }
+        } else if ("snow" in p) {
+          ctx.globalAlpha = opacity * 0.72;
+          ctx.fillStyle = "rgb(255,255,255)";
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.r ?? 1, 0, 6.28);
+          ctx.fill();
+          p.sway += p.sw;
+          p.y += p.spd * opacity;
+          p.x += Math.sin(p.sway) * 0.6 * opacity;
+          if (p.y > H) {
+            if (Math.random() < opacity) {
+              p.y = -5;
+              p.x = rnd(0, W);
+            }
+          }
+        }
+      }
+      ctx.globalAlpha = 1;
+    };
+
+    const stormIntensity = (from: Weather, to: Weather, blend: number) => {
+      const fromStorm = CONFIG.weather[from].particles === "storm" ? 1 - blend : 0;
+      const toStorm = CONFIG.weather[to].particles === "storm" ? blend : 0;
+      return fromStorm + toStorm;
     };
 
     const loop = () => {
@@ -627,64 +738,46 @@ export default function WeatherBackground({
       }
       displayedHourRef.current = displayed;
 
-      sky.style.background = skyGradient(displayed, weatherRef.current);
-
-      const h = displayed;
-      const kind = CONFIG.weather[weatherRef.current].particles;
-      ctx.clearRect(0, 0, W, H);
-      drawLight();
-      const starFade = Math.max(0, 1 - daylight(h) * 1.6);
-      for (const p of particles) {
-        if ("rain" in p) {
-          ctx.strokeStyle = "rgba(190,210,255,.42)";
-          ctx.lineWidth = 1.0;
-          ctx.beginPath();
-          ctx.moveTo(p.x, p.y);
-          ctx.lineTo(p.x - 2, p.y + p.len);
-          ctx.stroke();
-          p.y += p.spd;
-          p.x -= 1;
-          if (p.y > H) {
-            p.y = -p.len;
-            p.x = rnd(0, W);
-          }
-        } else if ("fog" in p) {
-          const cg = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.w / 2);
-          cg.addColorStop(0, `rgba(210,214,220,${p.op})`);
-          cg.addColorStop(1, "rgba(210,214,220,0)");
-          ctx.fillStyle = cg;
-          ctx.beginPath();
-          ctx.ellipse(p.x, p.y, p.w / 2, p.h / 2, 0, 0, 6.28);
-          ctx.fill();
-          p.x += p.spd;
-          if (p.x - p.w / 2 > W) p.x = -p.w / 2;
-        } else if ("star" in p) {
-          if (starFade > 0.02) {
-            p.tw += p.tws;
-            ctx.fillStyle = `rgba(255,255,255,${(0.3 + Math.abs(Math.sin(p.tw)) * 0.45) * starFade})`;
-            ctx.beginPath();
-            ctx.arc(p.x, p.y, p.r, 0, 6.28);
-            ctx.fill();
-          }
-        } else if ("snow" in p) {
-          ctx.fillStyle = "rgba(255,255,255,.72)";
-          ctx.beginPath();
-          ctx.arc(p.x, p.y, p.r ?? 1, 0, 6.28);
-          ctx.fill();
-          p.sway += p.sw;
-          p.y += p.spd;
-          p.x += Math.sin(p.sway) * 0.6;
-          if (p.y > H) {
-            p.y = -5;
-            p.x = rnd(0, W);
-          }
-        }
+      if (needsParticleRebuildRef.current) {
+        rebuildParticleSets();
+        needsParticleRebuildRef.current = false;
       }
-      if (kind === "storm" && !reduce) {
+
+      let blend = blendRef.current;
+      if (blend < 1) {
+        blend = Math.min(1, blend + blendStep);
+        blendRef.current = blend;
+      }
+      if (blend >= 1) {
+        fromWeatherRef.current = toWeatherRef.current;
+        if (particlesFrom.length > 0) particlesFrom = [];
+      }
+
+      const fromW = fromWeatherRef.current;
+      const toW = toWeatherRef.current;
+      const stops = blendedSkyStops(displayed, fromW, toW, blend);
+      sky.style.background = skyGradientFromStops(stops);
+
+      const lightFrom = CONFIG.weather[fromW].light;
+      const lightTo = CONFIG.weather[toW].light;
+      const lightStrength = lightFrom + (lightTo - lightFrom) * blend;
+
+      ctx.clearRect(0, 0, W, H);
+      drawLight(lightStrength);
+
+      const outOpacity = 1 - blend;
+      const inOpacity = blend;
+      if (outOpacity > 0.004) drawParticleSet(particlesFrom, outOpacity, displayed);
+      if (inOpacity > 0.004 || blend >= 1) {
+        drawParticleSet(particlesTo, blend >= 1 ? 1 : inOpacity, displayed);
+      }
+
+      const storm = stormIntensity(fromW, toW, blend);
+      if (storm > 0.05 && !reduce) {
         lt--;
-        if (lt <= 0 && Math.random() < 0.01) {
+        if (lt <= 0 && Math.random() < 0.01 * storm) {
           flash.style.transition = "none";
-          flash.style.opacity = "0.55";
+          flash.style.opacity = String(0.55 * storm);
           requestAnimationFrame(() => {
             flash.style.transition = "opacity .6s ease";
             flash.style.opacity = "0";
@@ -702,10 +795,6 @@ export default function WeatherBackground({
       removeEventListener("resize", resize);
     };
   }, [mounted]);
-
-  useEffect(() => {
-    rebuildRef.current();
-  }, [weather]);
 
   return (
     <>

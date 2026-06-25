@@ -1,14 +1,15 @@
 import ServiceContentLabel from "@/components/ui/ServiceContentLabel";
 import { SECTION_GRADIENT_CLASS as gradient } from "@/data/gradients";
+import { SNAP_SECTION_CLASS } from "@/lib/sectionSnap";
 
 export default function ServiceCustomAISection() {
   return (
     <section
       id="service-custom-ai"
-      className={`${gradient.service1} relative isolate flex min-h-screen py-10 flex-col overflow-hidden`}
+      className={`${gradient.service1} ${SNAP_SECTION_CLASS} relative isolate flex flex-col overflow-hidden pb-10`}
       style={{ background: "var(--gradient-service1)" }}
     >
-      <div className="makonis-container flex flex-col items-start pt-10">
+      <div className="makonis-container flex flex-col items-start">
         <h2 className="max-w-2xl">
           Smart AI Services for
           <br />

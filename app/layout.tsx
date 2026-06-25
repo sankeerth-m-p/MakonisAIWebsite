@@ -3,6 +3,7 @@ import Script from "next/script";
 import { Inter, Playfair_Display } from "next/font/google";
 import localFont from "next/font/local";
 import PreloaderGate from "@/components/preloader/PreloaderGate";
+import LenisRoot from "@/components/LenisRoot";
 import WeatherBackground from "@/components/WeatherBackground";
 import { gradientCssVars } from "@/data/gradients";
 import "./globals.css";
@@ -52,8 +53,10 @@ export default function RootLayout({
         suppressHydrationWarning
       >
         <PreloaderGate>
-          <WeatherBackground />
-          <div className="relative z-0">{children}</div>
+          <LenisRoot>
+            <WeatherBackground />
+            <div className="relative z-0">{children}</div>
+          </LenisRoot>
         </PreloaderGate>
       </body>
     </html>

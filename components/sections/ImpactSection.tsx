@@ -5,6 +5,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 
 import { SECTION_GRADIENT_CLASS as gradient } from "@/data/gradients";
 import { IMPACT_CARDS } from "@/data/sections";
+import { SNAP_SECTION_FLOW_CLASS } from "@/lib/sectionSnap";
 
 export default function ImpactSection() {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
@@ -87,9 +88,9 @@ export default function ImpactSection() {
   }, []);
 
   return (
-    <section id="impact" className={gradient.impact}>
+    <section id="impact" className={`${gradient.impact} ${SNAP_SECTION_FLOW_CLASS}`}>
       <div ref={wrapperRef} style={{ height: `calc(90vh + ${scrollDistance}px + 8rem)` }}>
-        <div className="sticky top-0  h-[calc(100vh)] md:pt-20 py-8 md:py-10">
+        <div className="sticky top-20 h-[calc(100vh-5rem)] py-8 md:py-10">
           <div className="makonis-container flex h-full min-h-0 flex-col">
             <div className="pb-8 md:pb-10">
               <h2>Where AI makes an impact</h2>

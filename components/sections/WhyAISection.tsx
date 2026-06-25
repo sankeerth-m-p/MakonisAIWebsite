@@ -1,8 +1,12 @@
 import { SECTION_GRADIENT_CLASS as gradient } from "@/data/gradients";
+import { SNAP_SECTION_CLASS } from "@/lib/sectionSnap";
 
 export default function WhyAISection() {
   return (
-    <section id="why-ai" className={`${gradient.whyAi} py-24 md:py-32 lg:py-40`}>
+    <section
+      id="why-ai"
+      className={`${gradient.whyAi} ${SNAP_SECTION_CLASS} flex flex-col justify-center pb-24 md:pb-32 lg:pb-40`}
+    >
       <div className="makonis-container">
         <div className="mx-auto max-w-3xl text-center">
           <h2>

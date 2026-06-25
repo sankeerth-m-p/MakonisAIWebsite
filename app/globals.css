@@ -17,29 +17,25 @@
 }
 html {
   background: transparent;
-  scroll-behavior: smooth;
-  scroll-padding-top: 5rem;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-@media (min-width: 768px) {
-  html {
-    scroll-padding-top: 5.5rem;
-  }
+/* Native CSS scroll snap — enabled via .snap-enabled on <html> (see LenisRoot) */
+html.snap-enabled {
+  scroll-snap-type: y mandatory;
+  -webkit-overflow-scrolling: touch;
 }
 
-html.lenis,
-html.lenis body {
-  height: auto;
+.snap-section {
+  min-height: 100vh;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
 }
 
-.lenis.lenis-smooth {
-  scroll-behavior: auto !important;
-}
-
-.lenis.lenis-stopped {
-  overflow: hidden;
+/* Tall sections: snap at entry, allow continuous scroll through interior */
+.snap-section--flow {
+  scroll-snap-stop: normal;
 }
 
 body {
@@ -147,10 +143,10 @@ button {
   .section-padding-sm { @apply py-12; }
   .section-padding-lg { @apply py-20; }
 
-  h1 { @apply text-3xl md:text-5xl lg:text-6xl; }
-  h2 { @apply text-2xl md:text-4xl lg:text-5xl; }
-  h3 { @apply text-xl md:text-3xl lg:text-4xl; }
-  h4 { @apply text-lg md:text-xl; }
+  h1 { @apply text-3xl md:text-5xl  lg:text-6xl; }
+  h2 { @apply text-2xl md:text-4xl  lg:text-5xl; }
+  h3 { @apply text-xl md:text-3xl  lg:text-4xl; }
+  h4 { @apply text-lg md:text-xl ; }
   h5 { @apply text-base md:text-lg; }
   h6 { @apply text-sm md:text-base; }
 
