@@ -166,11 +166,13 @@ export function getSectionScrollProgress(section: HTMLElement): number {
 
 /**
  * Two-phase progress for A→B (enter) then B→C (exit).
- * 0 = section entering, 0.5 = section fully in view, 1 = section leaving upward.
+ * 0 = section entering, 0.5 = section top aligned with viewport top,
+ * 1 = section bottom aligned with viewport top (fully scrolled through).
  */
 export function getSectionEnterExitProgress(section: HTMLElement): number {
   const rect = section.getBoundingClientRect();
   const vh = window.innerHeight;
+  const sh = section.offsetHeight;
 
   if (rect.top >= vh) return 0;
   if (rect.bottom <= 0) return 1;
@@ -179,5 +181,9 @@ export function getSectionEnterExitProgress(section: HTMLElement): number {
     return Math.min((1 - rect.top / vh) * 0.5, 0.5);
   }
 
-  return Math.min(0.5 + (-rect.top / vh) * 0.5, 1);
+  // Exit spans the full section height so path endpoint C (bottom) lines up
+  // only when the section has been scrolled all the way through.
+  const exitRange = Math.max(sh, 1);
+  const exitProgress = Math.min(-rect.top / exitRange, 1);
+  return 0.5 + exitProgress * 0.5;
 }

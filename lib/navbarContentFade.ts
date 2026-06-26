@@ -2,7 +2,7 @@
 export const NAVBAR_FADE_HEIGHT_PX = 80;
 
 /** Distance below the navbar where content eases back to full opacity. */
-export const NAVBAR_FADE_ZONE_PX = 80;
+export const NAVBAR_FADE_ZONE_PX = 40;
 
 const CONTENT_SELECTOR = "main section .makonis-container";
 

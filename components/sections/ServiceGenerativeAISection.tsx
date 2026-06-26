@@ -34,7 +34,7 @@ export default function ServiceGenerativeAISection() {
       <NightSkyStarsOverlay /> 
       <UfoScrollReveal
         src="/ufo.webm"
-        height="40vh"
+        height="26vh"
         path={UFO_PATH}
         progressMode="enterExit"
       />

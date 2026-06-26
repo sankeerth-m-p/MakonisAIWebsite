@@ -33,7 +33,7 @@ type Props = {
 
 export default function UfoScrollReveal({
   src,
-  height = "40vh",
+  height = "30vh",
   className = "",
   path,
   showPath = false,

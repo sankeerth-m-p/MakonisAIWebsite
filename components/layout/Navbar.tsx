@@ -136,7 +136,7 @@ export default function Navbar() {
 
             <button
               type="button"
-              onClick={() => scrollToSection("intro")}
+              onClick={() => scrollToSection("exit-door", { block: "end" })}
               className="flex shrink-0 items-center gap-2 rounded-md bg-black  text-sm text-white transition-opacity hover:opacity-90 md:px-4 md:py-3"
             >
               Contact Us
