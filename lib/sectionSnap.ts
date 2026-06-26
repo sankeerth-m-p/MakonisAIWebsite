@@ -1,5 +1,8 @@
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 
+/** Set to `true` to enable CSS scroll snap between sections; `false` for free scroll. */
+export const SECTION_SNAP_ENABLED = false;
+
 /** Sections that participate in CSS scroll snap once the intro zone is reached. */
 export const SNAP_SECTION_IDS = [
   "intro",
@@ -64,6 +67,7 @@ export function isInSnapZone(scrollY = window.scrollY): boolean {
 
 /** Toggles `html.snap-enabled` — native CSS mandatory snap on the document scroller. */
 export function shouldEnableCssSnap(scrollY = window.scrollY): boolean {
+  if (!SECTION_SNAP_ENABLED) return false;
   if (!isInSnapZone(scrollY)) return false;
   if (isHeroPinned()) return false;
   if (isImpactFreeScrollZone(scrollY)) return false;

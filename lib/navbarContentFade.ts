@@ -1,8 +1,8 @@
 /** Matches Navbar `h-20` (5rem). */
-export const NAVBAR_FADE_HEIGHT_PX = 60;
+export const NAVBAR_FADE_HEIGHT_PX = 80;
 
 /** Distance below the navbar where content eases back to full opacity. */
-export const NAVBAR_FADE_ZONE_PX = 40;
+export const NAVBAR_FADE_ZONE_PX = 80;
 
 const CONTENT_SELECTOR = "main section .makonis-container";
 

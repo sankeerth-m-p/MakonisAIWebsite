@@ -319,3 +319,63 @@ html.preloader-active body {
   user-select: none;
 }
 
+@keyframes night-sky-twinkle {
+  0%,
+  100% {
+    opacity: 0.15;
+    transform: scale(0.7);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.night-sky-star {
+  position: absolute;
+  border-radius: 50%;
+  background: #ffffff;
+  will-change: opacity, transform;
+}
+
+.night-sky-meteor-anchor {
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+
+.night-sky-meteor-streak {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(
+    to left,
+    #ffffff 0%,
+    rgba(255, 255, 255, 0.6) 12%,
+    rgba(180, 205, 255, 0) 100%
+  );
+  will-change: transform, opacity;
+}
+
+.night-sky-meteor-head {
+  position: absolute;
+  top: -2px;
+  right: -3px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow:
+    0 0 8px 3px rgba(255, 255, 255, 0.8),
+    0 0 16px 6px rgba(150, 190, 255, 0.4);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .night-sky-star {
+    animation: none !important;
+    opacity: 0.6;
+  }
+}
+
