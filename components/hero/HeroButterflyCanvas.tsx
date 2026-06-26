@@ -106,6 +106,8 @@ const SITTING_PATH = "/butterfly/sitting";
 const FLYING_PATH  = "/butterfly/flying";
 /** Duration of each half of a direction-change flip transition. */
 const DIRECTION_FLIP_PHASE_SECONDS = 0.46;
+/** Skip the flip animation when scroll moves this fast (progress units / frame). */
+const FAST_SCROLL_FLIP_SKIP = 0.006;
 /** Progress span used for each takeoff transition segment. */
 const TAKEOFF_TRANSITION_SPAN = 0.018;
 /** Only this center fraction of each window uses sitting frames. */
@@ -730,6 +732,7 @@ export default function HeroButterflyCanvas({
   preload(sittingFrameSrc(FIRST_SITTING_FRAME), { as: "image" });
 
   const canvasRef     = useRef<HTMLCanvasElement>(null);
+  const ctxRef        = useRef<CanvasRenderingContext2D | null>(null);
   const sittingFrames = useRef<HTMLImageElement[]>([]);
   const takeoffFrames = useRef<HTMLImageElement[]>([]);
   const flyingFrames  = useRef<HTMLImageElement[]>([]);
@@ -742,14 +745,12 @@ export default function HeroButterflyCanvas({
     phaseT: number;
     fromFacingLeft: boolean;
     toFacingLeft: boolean;
-    lockedPos: { x: number; y: number } | null;
   }>({
     active: false,
     phase: "reverseTakeoff",
     phaseT: 0,
     fromFacingLeft: true,
     toFacingLeft: true,
-    lockedPos: null,
   });
   const readyRef      = useRef(false);
   const pathRef       = useRef<PathKeyframe[]>(path);
@@ -790,8 +791,13 @@ export default function HeroButterflyCanvas({
   const drawFrame = useCallback(
     (img: HTMLImageElement, pos: { x: number; y: number }, flipX: boolean, pathKeyframes: PathKeyframe[], progress: number) => {
       const canvas = canvasRef.current;
-      const ctx    = canvas?.getContext("2d");
-      if (!canvas || !ctx) return;
+      if (!canvas) return;
+      let ctx = ctxRef.current;
+      if (!ctx) {
+        ctx = canvas.getContext("2d");
+        if (!ctx) return;
+        ctxRef.current = ctx;
+      }
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       if (showPath || showPathPoints) {
         drawPathGuide(ctx, canvas, pathKeyframes, progress, {
@@ -857,7 +863,6 @@ export default function HeroButterflyCanvas({
 
       if (progress < FLYING_START_PROGRESS) {
         flipTransition.active = false;
-        flipTransition.lockedPos = null;
         sittingIndex.current += dt * SITTING_IDLE_FPS;
         if (scrollMotion > 0) {
           sittingIndex.current += scrollMotion * SITTING_SCROLL_SCALE;
@@ -870,7 +875,6 @@ export default function HeroButterflyCanvas({
       const poseStage = getPoseStage(progress);
       if (poseStage === "takeoffIn" || poseStage === "takeoffOut") {
         flipTransition.active = false;
-        flipTransition.lockedPos = null;
         if (takeFrames.length > 0) {
           const reverse = poseStage === "takeoffIn";
           const frameIndex = getTakeoffTransitionFrameIndex(progress, reverse, takeFrames.length);
@@ -883,7 +887,6 @@ export default function HeroButterflyCanvas({
       }
       if (poseStage === "sitting") {
         flipTransition.active = false;
-        flipTransition.lockedPos = null;
         sittingIndex.current += dt * SITTING_IDLE_FPS;
         if (scrollMotion > 0) {
           sittingIndex.current += scrollMotion * SITTING_SCROLL_SCALE;
@@ -893,41 +896,46 @@ export default function HeroButterflyCanvas({
         drawFrame(sitFrames[Math.floor(sittingIndex.current) % sitFrames.length], pos, flipX, kfs, progress);
         return;
       }
-      // Flying stage: smooth direction change with takeoff transition:
-      // flying -> reverse takeoff -> flip -> forward takeoff -> flying.
+      // Flying stage: smooth direction change with takeoff transition when idle/slow.
       if (flipTransition.active && takeFrames.length > 0) {
-        const transitionPos = flipTransition.lockedPos ?? pos;
-        flipTransition.phaseT = Math.min(
-          1,
-          flipTransition.phaseT + dt / DIRECTION_FLIP_PHASE_SECONDS,
-        );
-        if (flipTransition.phase === "reverseTakeoff") {
-          const idx = getTakeoffFrameIndexByPhaseT(flipTransition.phaseT, true, takeFrames.length);
-          drawFrame(takeFrames[idx], transitionPos, flipTransition.fromFacingLeft, kfs, progress);
+        if (scrollMotion > FAST_SCROLL_FLIP_SKIP) {
+          flipTransition.active = false;
+          facingLeftRef.current = desiredFacingLeft;
+        } else {
+          flipTransition.phaseT = Math.min(
+            1,
+            flipTransition.phaseT + dt / DIRECTION_FLIP_PHASE_SECONDS,
+          );
+          if (flipTransition.phase === "reverseTakeoff") {
+            const idx = getTakeoffFrameIndexByPhaseT(flipTransition.phaseT, true, takeFrames.length);
+            drawFrame(takeFrames[idx], pos, flipTransition.fromFacingLeft, kfs, progress);
+            if (flipTransition.phaseT >= 1) {
+              flipTransition.phase = "forwardTakeoff";
+              flipTransition.phaseT = 0;
+              facingLeftRef.current = flipTransition.toFacingLeft;
+            }
+            return;
+          }
+          const idx = getTakeoffFrameIndexByPhaseT(flipTransition.phaseT, false, takeFrames.length);
+          drawFrame(takeFrames[idx], pos, flipTransition.toFacingLeft, kfs, progress);
           if (flipTransition.phaseT >= 1) {
-            flipTransition.phase = "forwardTakeoff";
-            flipTransition.phaseT = 0;
+            flipTransition.active = false;
             facingLeftRef.current = flipTransition.toFacingLeft;
           }
           return;
         }
-        const idx = getTakeoffFrameIndexByPhaseT(flipTransition.phaseT, false, takeFrames.length);
-        drawFrame(takeFrames[idx], transitionPos, flipTransition.toFacingLeft, kfs, progress);
-        if (flipTransition.phaseT >= 1) {
-          flipTransition.active = false;
-          flipTransition.lockedPos = null;
-          facingLeftRef.current = flipTransition.toFacingLeft;
-        }
-        return;
       }
 
-      if (desiredFacingLeft !== facingLeftRef.current && takeFrames.length > 0) {
+      if (
+        desiredFacingLeft !== facingLeftRef.current &&
+        takeFrames.length > 0 &&
+        scrollMotion <= FAST_SCROLL_FLIP_SKIP
+      ) {
         flipTransition.active = true;
         flipTransition.phase = "reverseTakeoff";
         flipTransition.phaseT = 0;
         flipTransition.fromFacingLeft = facingLeftRef.current;
         flipTransition.toFacingLeft = desiredFacingLeft;
-        flipTransition.lockedPos = pos;
       } else {
         facingLeftRef.current = desiredFacingLeft;
       }

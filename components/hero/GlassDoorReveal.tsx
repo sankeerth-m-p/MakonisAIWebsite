@@ -199,7 +199,10 @@ export default function GlassDoorReveal({
   const cueRef = useRef<HTMLDivElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const targetTimeRef = useRef(0);
+  /** Smoothed video seek — used only for `video.currentTime`. */
   const videoProgressRef = useRef(0);
+  /** Instant scroll-mapped progress for the butterfly (no glide / scrub lag). */
+  const butterflyProgressRef = useRef(0);
 
   // ----- AUTO-CALCULATED TOTAL SCROLL -----
   const doorEnd = doorStartProgress + doorScrollDistance;
@@ -290,6 +293,7 @@ export default function GlassDoorReveal({
       let lastSeekTime = 0;
       let seekTime = 0;
       let scrollEngaged = false;
+      let heroScrollTrigger: ScrollTrigger | null = null;
       const glide = Math.min(Math.max(videoGlide, 0.01), 1);
       const HERO_IDLE_EPS = 0.001;
 
@@ -303,6 +307,30 @@ export default function GlassDoorReveal({
         return Math.min(Math.max(videoProgress, 0), 1) * video.duration;
       };
 
+      const computeButterflyProgress = (timelineProgress: number): number => {
+        if (timelineProgress <= vStart) return 0;
+        if (timelineProgress >= vEnd) return 1;
+        const span = vEnd - vStart || 1;
+        return (timelineProgress - vStart) / span;
+      };
+
+      /** Timeline progress from raw scroll — bypasses ScrollTrigger scrub smoothing. */
+      const instantTimelineProgress = (st: ScrollTrigger): number => {
+        const range = st.end - st.start;
+        if (range <= 0) return 0;
+        return gsap.utils.clamp(0, 1, (st.scroll() - st.start) / range);
+      };
+
+      const syncButterflyProgress = (st: ScrollTrigger | null | undefined) => {
+        if (!st || !scrollEngaged) {
+          butterflyProgressRef.current = 0;
+          return;
+        }
+        butterflyProgressRef.current = computeButterflyProgress(
+          instantTimelineProgress(st),
+        );
+      };
+
       const engageScroll = (progress: number) => {
         if (scrollEngaged) return;
         scrollEngaged = true;
@@ -312,6 +340,11 @@ export default function GlassDoorReveal({
         video.currentTime = 0;
         targetTimeRef.current = computeTargetTime(progress);
         videoProgressRef.current = 0;
+        if (heroScrollTrigger) {
+          syncButterflyProgress(heroScrollTrigger);
+        } else {
+          butterflyProgressRef.current = computeButterflyProgress(progress);
+        }
       };
 
       const disengageScroll = () => {
@@ -320,6 +353,7 @@ export default function GlassDoorReveal({
         seekTime = 0;
         targetTimeRef.current = 0;
         videoProgressRef.current = 0;
+        butterflyProgressRef.current = 0;
         video.loop = true;
         void video.play().catch(() => {});
       };
@@ -359,16 +393,17 @@ export default function GlassDoorReveal({
 
         if (!scrollEngaged) {
           // Butterfly stays at t=0 while the video loops freely in the background.
-          videoProgressRef.current = 0;
+          butterflyProgressRef.current = 0;
           tryAutoplay();
           return;
         }
+
+        syncButterflyProgress(heroScrollTrigger);
 
         const desired = targetTimeRef.current;
         seekTime += (desired - seekTime) * glide;
         if (Math.abs(desired - seekTime) < 0.002) seekTime = desired;
 
-        // Always publish smoothed progress so the butterfly tracks glide, not raw scroll.
         videoProgressRef.current = seekTime / video.duration;
 
         const now = performance.now();
@@ -402,6 +437,7 @@ export default function GlassDoorReveal({
               disengageScroll();
             } else if (scrollEngaged) {
               targetTimeRef.current = computeTargetTime(self.progress);
+              syncButterflyProgress(self);
             }
             syncLogoMask();
             if (showHeroPhrases) {
@@ -522,8 +558,11 @@ export default function GlassDoorReveal({
         );
       }
 
+      heroScrollTrigger = tl.scrollTrigger ?? null;
+
       if (tl.scrollTrigger) {
         syncLogoMask();
+        syncButterflyProgress(tl.scrollTrigger);
         if (showHeroPhrases) {
           syncHeroPhrases(
             tl.scrollTrigger.progress,
@@ -650,7 +689,7 @@ export default function GlassDoorReveal({
             }}
           >
             <HeroButterflyCanvas
-              progressRef={videoProgressRef}
+              progressRef={butterflyProgressRef}
               // editorMode={process.env.NODE_ENV === "development"}
               editorVideoSrc={src}
             />
