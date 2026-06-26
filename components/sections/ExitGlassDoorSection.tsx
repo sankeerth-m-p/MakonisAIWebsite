@@ -2,6 +2,8 @@
 
 import { useRef } from "react";
 import Image from "next/image";
+import MidnightClearSkyBackground from "@/components/MidnightClearSkyBackground";
+import VideoScrollZoomBackground from "@/components/VideoScrollZoomBackground";
 import {
   FaFacebookF,
   FaInstagram,
@@ -15,6 +17,35 @@ import { publishDoorEdges } from "@/lib/doorReveal";
 
 gsap.registerPlugin(ScrollTrigger, useGSAP);
 
+const CONTACT_EMAIL = "info@makonissoft.com";
+
+const SOCIAL_LINKS = [
+  {
+    href: "https://www.instagram.com/makonissoft/",
+    label: "Instagram",
+    Icon: FaInstagram,
+    className: "text-base",
+  },
+  {
+    href: "https://www.facebook.com/makonissoft/",
+    label: "Facebook",
+    Icon: FaFacebookF,
+    className: "text-sm",
+  },
+  {
+    href: "https://www.linkedin.com/company/makonissoftwaresolutions-pvt-ltd",
+    label: "LinkedIn",
+    Icon: FaLinkedinIn,
+    className: "text-sm",
+  },
+  {
+    href: "https://twitter.com/makonissoft",
+    label: "X (Twitter)",
+    Icon: FaXTwitter,
+    className: "text-sm",
+  },
+] as const;
+
 export default function ExitGlassDoorSection() {
   const rootRef = useRef<HTMLElement | null>(null);
   const pinRef = useRef<HTMLDivElement | null>(null);
@@ -25,6 +56,7 @@ export default function ExitGlassDoorSection() {
   const closedFrostRef = useRef<HTMLDivElement | null>(null);
   const leftEdgeRef = useRef<HTMLDivElement | null>(null);
   const rightEdgeRef = useRef<HTMLDivElement | null>(null);
+  const videoProgressRef = useRef(0);
 
   const seamCenterX = (el: HTMLElement): number => {
     const rect = el.getBoundingClientRect();
@@ -81,12 +113,19 @@ export default function ExitGlassDoorSection() {
       });
       gsap.set(closedFrost, { opacity: 0 });
 
+      const videoProgressObj = { value: 0 };
+
+      const zoomDuration = 1;
+      const holdDuration = 1;
+      const doorDuration = 1;
+      const doorStart = zoomDuration + holdDuration;
+
       const timeline = gsap.timeline({
         defaults: { ease: "none" },
         scrollTrigger: {
           trigger: root,
           start: "top top",
-          end: "+=140%",
+          end: "+=360%",
           pin,
           pinSpacing: true,
           scrub: 1,
@@ -94,21 +133,40 @@ export default function ExitGlassDoorSection() {
         },
       });
 
+      // Video zoom (0 → 1) over midnight sky
+      timeline.to(
+        videoProgressObj,
+        {
+          value: 1,
+          duration: zoomDuration,
+          ease: "none",
+          onUpdate: () => {
+            videoProgressRef.current = videoProgressObj.value;
+          },
+        },
+        0,
+      );
+
+      // Hold — zoomed video, no door motion
+      timeline.to({}, { duration: holdDuration }, zoomDuration);
+
+      // Door close — starts after the hold
       timeline
-        .to(leftDoor, { xPercent: 0, duration: 1 }, 0)
-        .to(rightDoor, { xPercent: 0, duration: 1 }, 0)
-        .to(leftContentDoor, { xPercent: 0, duration: 1 }, 0)
-        .to(rightContentDoor, { xPercent: 0, duration: 1 }, 0)
-        .to([leftDoor, rightDoor], { opacity: 1, duration: 1 }, 0);
+        .to(leftDoor, { xPercent: 0, duration: doorDuration }, doorStart)
+        .to(rightDoor, { xPercent: 0, duration: doorDuration }, doorStart)
+        .to(leftContentDoor, { xPercent: 0, duration: doorDuration }, doorStart)
+        .to(rightContentDoor, { xPercent: 0, duration: doorDuration }, doorStart)
+        .to([leftDoor, rightDoor], { opacity: 1, duration: doorDuration }, doorStart);
       timeline
-        .to(closedFrost, { opacity: 1, duration: 0.1 }, 1)
+        .to(closedFrost, { opacity: 1, duration: 0.1 }, doorStart + doorDuration)
         .to(
           [leftDoor, rightDoor],
           { opacity: 0, duration: 0.1 },
-          1,
+          doorStart + doorDuration,
         );
       timeline.eventCallback("onUpdate", syncNavbarMask);
       syncNavbarMask();
+      videoProgressRef.current = videoProgressObj.value;
     },
     { scope: rootRef },
   );
@@ -121,24 +179,20 @@ export default function ExitGlassDoorSection() {
     <section
       id="exit-door"
       ref={rootRef}
-      className="snap-section relative z-50 min-h-screen"
+      className="snap-section  relative z-50 min-h-screen"
     >
       <div
         ref={pinRef}
         className="relative h-screen overflow-hidden isolate "
       >
-        <Image
-          src="/finalFrame.png"
-          alt="Exit background"
-          fill
-          priority={false}
-          className="z-0 object-cover object-center"
-        />
-
-        <div
-          aria-hidden="true"
-          className="absolute inset-0 z-1 bg-[linear-gradient(90deg,rgba(10,11,15,0.58)_0%,rgba(22,23,27,0.34)_42%,rgba(241,196,131,0.18)_100%)]"
-        />
+        <MidnightClearSkyBackground />
+        <div className="absolute inset-0 z-1">
+          <VideoScrollZoomBackground
+            progressRef={videoProgressRef}
+            maskStartWidth={0.88}
+            maskStartInset={24}
+          />
+        </div>
 
         <div
           aria-hidden="true"
@@ -189,7 +243,7 @@ export default function ExitGlassDoorSection() {
 
           <div
             ref={rightContentDoorRef}
-            className="absolute top-0 bottom-0 left-1/2 flex w-1/2 items-start justify-center p-[clamp(1.2rem,3.4vw,2.1rem)_clamp(1.05rem,2.8vw,1.8rem)] backface-hidden [-webkit-backface-visibility:hidden] transform-3d will-change-[transform,opacity]"
+            className="pointer-events-auto absolute top-0 bottom-0 left-1/2 flex w-1/2 items-start justify-center p-[clamp(1.2rem,3.4vw,2.1rem)_clamp(1.05rem,2.8vw,1.8rem)] backface-hidden [-webkit-backface-visibility:hidden] transform-3d will-change-[transform,opacity]"
           >
             <div className="flex h-full w-full max-w-[520px] flex-col text-white">
               <div className="flex w-full max-w-[420px] flex-1 flex-col items-start justify-center text-left">
@@ -215,19 +269,30 @@ export default function ExitGlassDoorSection() {
                   Contact us
                 </p>
                 <p className="mt-2">
-                  info@makonisoft.com
+                  <a
+                    href={`mailto:${CONTACT_EMAIL}`}
+                    className="transition-opacity hover:opacity-80"
+                  >
+                    {CONTACT_EMAIL}
+                  </a>
                 </p>
 
                 <p className=" eyebrow mt-[clamp(2.1rem,3.8vw,2.9rem)] ">
                   Follow us on
                 </p>
-                <div
-                  className="mt-3 flex items-center gap-[clamp(1rem,1.8vw,1.55rem)] "
-                >
-                  <FaInstagram aria-label="Instagram" className="text-base" />
-                  <FaFacebookF aria-label="Facebook" className="text-sm" />
-                  <FaLinkedinIn aria-label="LinkedIn" className="text-sm" />
-                  <FaXTwitter aria-label="X (Twitter)" className="text-sm" />
+                <div className="mt-3 flex items-center gap-[clamp(1rem,1.8vw,1.55rem)]">
+                  {SOCIAL_LINKS.map(({ href, label, Icon, className }) => (
+                    <a
+                      key={label}
+                      href={href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={label}
+                      className="transition-opacity hover:opacity-80"
+                    >
+                      <Icon className={className} />
+                    </a>
+                  ))}
                 </div>
               </div>
 

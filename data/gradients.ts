@@ -63,7 +63,7 @@ export const SECTION_GRADIENTS: Record<string, GradientConfig> = {
     angle: "to bottom",
     colors: [
       { color: "#2A3F6C" },
-      { color: "#0a0a0c" },
+      { color: "#060a18" },
     ],
   },
 } as const;

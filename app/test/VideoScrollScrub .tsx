@@ -1,121 +1,159 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import gsap from "gsap";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
-
-gsap.registerPlugin(ScrollTrigger);
 
 type Props = {
   src?: string;
-  /** Lower = more glide/lag (0.05 buttery, 0.2 snappy). */
-  glide?: number;
-  /** Scroll distance as a multiple of viewport height. */
   scrollHeightVh?: number;
+  scrollStart?: number;
+  scrollEnd?: number;
+  /** Clip inset % at scroll start (progress 0). Default 30 — video already partly visible. */
+  maskStartInset?: number;
+  /** Clip inset % at scroll end (progress 1). Default 0 — fully revealed. */
+  maskEndInset?: number;
+  /** Scroll progress (0–1) at which video starts auto-playing. */
+  playAtProgress?: number;
+  /** Initial mask width as a fraction of available viewport width (0–1). */
+  maskStartWidth?: number;
+  /** Corner radius in px (rounded-lg = 8). */
+  maskCornerRadius?: number;
+  /** Scroll follow smoothness (0–1). Lower = smoother, slower catch-up. */
+  smoothness?: number;
+  /** Final mask size relative to viewport (1.05 = 105%). */
+  maskEndScale?: number;
 };
 
-/**
- * VideoScrollScrub
- * ----------------
- * The video never autoplays. A hidden <video> is used purely as a frame source:
- * we decode it to a <canvas> and drive its time from scroll progress.
- *
- * Smoothness trick: scroll feeds a *target* time, and every animation frame we
- * ease the real playhead toward it (lerp). The video glides instead of snapping.
- */
+
+
 export default function VideoScrollScrub({
-  src = "/temp%20hero4.webm",
-  glide = 0.06,
+  src = "/makonis.ai_video.mp4",
   scrollHeightVh = 400,
+  scrollStart = 0.1,
+  scrollEnd = 0.9,
+  maskStartInset = 30,
+  maskEndInset = 0,
+  playAtProgress = 0.1,
+  maskStartWidth = 0.85,
+  maskCornerRadius = 8,
+  smoothness = 0.06,
+  maskEndScale = 1.05,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const stickyRef = useRef<HTMLDivElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const targetProgressRef = useRef(0);
+  const smoothProgressRef = useRef(0);
+  const smoothRafRef = useRef(0);
 
+  const [smoothProgress, setSmoothProgress] = useState(0);
+  const [barProg, setBarProg] = useState(0);
   const [ready, setReady] = useState(false);
   const [loadPct, setLoadPct] = useState(0);
+  const isPlayingRef = useRef(false);
+  const progRafRef = useRef(0);
+  const progStartRef = useRef<number | null>(null);
+  const [viewport, setViewport] = useState({ w: 0, h: 0 });
+
+  useEffect(() => {
+    const updateViewport = () =>
+      setViewport({ w: window.innerWidth, h: window.innerHeight });
+    updateViewport();
+    window.addEventListener("resize", updateViewport);
+    return () => window.removeEventListener("resize", updateViewport);
+  }, []);
+
+  const easeInOutCubic = (t: number) =>
+    t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2;
+
+  useEffect(() => {
+    const tick = () => {
+      const target = targetProgressRef.current;
+      let smooth = smoothProgressRef.current;
+      smooth += (target - smooth) * smoothness;
+      if (Math.abs(target - smooth) < 0.0003) smooth = target;
+      smoothProgressRef.current = smooth;
+      setSmoothProgress(smooth);
+      smoothRafRef.current = requestAnimationFrame(tick);
+    };
+    smoothRafRef.current = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(smoothRafRef.current);
+  }, [smoothness]);
 
   useEffect(() => {
     const container = containerRef.current;
-    const sticky = stickyRef.current;
-    const canvas = canvasRef.current;
-    const video = videoRef.current;
-    if (!container || !sticky || !canvas || !video) return;
+    if (!container) return;
 
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-
-    let rafId = 0;
-    let running = false;
-    let st: ScrollTrigger | null = null;
-
-    // The playhead glide: target is fed by scroll, seek eases toward it.
-    let targetTime = 0;
-    let seekTime = 0;
-
-    // --- Draw current video frame (object-fit: cover) ---
-    const draw = () => {
-      const vw = video.videoWidth;
-      const vh = video.videoHeight;
-      if (!vw || !vh) return;
-      const cw = canvas.width;
-      const ch = canvas.height;
-      const scale = Math.max(cw / vw, ch / vh);
-      const dw = vw * scale;
-      const dh = vh * scale;
-      ctx.drawImage(video, (cw - dw) / 2, (ch - dh) / 2, dw, dh);
+    const stopBarProg = () => {
+      cancelAnimationFrame(progRafRef.current);
+      progStartRef.current = null;
+      setBarProg(0);
     };
 
-    // --- Ease the real playhead toward the scroll target, then draw ---
-    const loop = () => {
-      seekTime += (targetTime - seekTime) * glide;
-      if (Math.abs(targetTime - seekTime) < 0.002) seekTime = targetTime;
-      if (Math.abs(video.currentTime - seekTime) > 0.01) {
-        video.currentTime = seekTime;
+    const startBarProg = () => {
+      cancelAnimationFrame(progRafRef.current);
+      progStartRef.current = Date.now();
+      const tick = () => {
+        if (!progStartRef.current) return;
+        const t = Math.min((Date.now() - progStartRef.current) / 3000, 1);
+        setBarProg(t * 100);
+        if (t < 1) {
+          progRafRef.current = requestAnimationFrame(tick);
+        } else {
+          progStartRef.current = Date.now();
+          progRafRef.current = requestAnimationFrame(tick);
+        }
+      };
+      progRafRef.current = requestAnimationFrame(tick);
+    };
+
+    const onScroll = () => {
+      const rect = container.getBoundingClientRect();
+      const scrollable = container.offsetHeight - window.innerHeight;
+      if (scrollable <= 0) {
+        targetProgressRef.current = 0;
+        return;
       }
-      draw();
-      rafId = requestAnimationFrame(loop);
+      const scrolled = -rect.top;
+      const start = scrollable * scrollStart;
+      const end = scrollable * scrollEnd;
+      const raw = (scrolled - start) / (end - start);
+      const p = Math.max(0, Math.min(1, raw));
+      targetProgressRef.current = p;
+
+      if (p > 0.95 && !isPlayingRef.current) {
+        isPlayingRef.current = true;
+        startBarProg();
+      } else if (p < playAtProgress && isPlayingRef.current) {
+        isPlayingRef.current = false;
+        stopBarProg();
+      }
+
+      const video = videoRef.current;
+      if (video && ready) {
+        if (p >= playAtProgress) {
+          if (video.paused) {
+            video.play().catch(() => {});
+          }
+        } else {
+          if (!video.paused) {
+            video.pause();
+          }
+        }
+      }
     };
 
-    const startLoop = () => {
-      if (running) return;
-      running = true;
-      loop();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    onScroll();
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+      stopBarProg();
     };
-    const stopLoop = () => {
-      running = false;
-      cancelAnimationFrame(rafId);
-    };
+  }, [scrollHeightVh, scrollStart, scrollEnd, playAtProgress, ready]);
 
-    // --- Crisp canvas on resize / DPR ---
-    const resize = () => {
-      const w = sticky.clientWidth;
-      const h = sticky.clientHeight;
-      canvas.width = Math.round(w * dpr);
-      canvas.height = Math.round(h * dpr);
-      canvas.style.width = `${w}px`;
-      canvas.style.height = `${h}px`;
-      draw();
-    };
-
-    // --- Scroll progress -> target time (the lerp does the smoothing) ---
-    const setupScrub = () => {
-      const duration = video.duration;
-      if (!duration || !isFinite(duration)) return;
-      st = ScrollTrigger.create({
-        trigger: container,
-        start: "top top",
-        end: "bottom bottom",
-        scrub: true,
-        onUpdate: (self) => {
-          targetTime = self.progress * duration;
-        },
-      });
-      ScrollTrigger.refresh();
-    };
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
 
     const onProgress = () => {
       try {
@@ -129,114 +167,93 @@ export default function VideoScrollScrub({
     };
 
     const onLoaded = async () => {
-      resize();
       try {
         await video.play();
         video.pause();
       } catch {
-        /* autoplay may be blocked; muted canvas draw usually still works */
+        /* noop */
       }
       video.currentTime = 0;
       setReady(true);
-      setupScrub();
-      startLoop();
     };
-
-    const io = new IntersectionObserver(
-      ([entry]) => (entry.isIntersecting ? startLoop() : stopLoop()),
-      { threshold: 0 }
-    );
 
     video.muted = true;
     video.playsInline = true;
     video.preload = "auto";
-
     video.addEventListener("loadeddata", onLoaded, { once: true });
     video.addEventListener("progress", onProgress);
-    window.addEventListener("resize", resize);
-    io.observe(sticky);
-
     video.load();
 
     return () => {
-      stopLoop();
-      io.disconnect();
-      window.removeEventListener("resize", resize);
       video.removeEventListener("progress", onProgress);
       video.removeEventListener("loadeddata", onLoaded);
-      st?.kill();
-      ScrollTrigger.getAll().forEach((t) => t.kill());
     };
-  }, [src, glide]);
+  }, [src]);
+
+  const t = easeInOutCubic(smoothProgress);
+  const inset = maskStartInset - t * (maskStartInset - maskEndInset);
+  const clip = `inset(${inset.toFixed(2)}% ${inset.toFixed(2)}% ${inset.toFixed(2)}% ${inset.toFixed(2)}% round ${maskCornerRadius}px)`;
+
+  const vw = viewport.w || (typeof window !== "undefined" ? window.innerWidth : 1920);
+  const vh = viewport.h || (typeof window !== "undefined" ? window.innerHeight : 1080);
+
+  const padX = 20 * (1 - t);
+  const startW = (vw - padX * 2) * maskStartWidth;
+  const startH = startW / 1.6;
+  const endW = vw * maskEndScale;
+  const endH = vh * maskEndScale;
+  const maskW = startW + (endW - startW) * t;
+  const maskH = startH + (endH - startH) * t;
 
   return (
-    <div
-      ref={containerRef}
-      style={{ height: `${scrollHeightVh}vh`, position: "relative", background: "#000" }}
-    >
+    <>
       <div
-        ref={stickyRef}
-        style={{
-          position: "sticky",
-          top: 0,
-          height: "100vh",
-          width: "100%",
-          overflow: "hidden",
-        }}
+        ref={containerRef}
+        className="relative bg-[#f5f5f0] "
+        style={{ height: `${scrollHeightVh}vh` }}
       >
-        <video
-          ref={videoRef}
-          src={src}
-          muted
-          playsInline
-          preload="auto"
-          style={{ display: "none" }}
-        />
-
-        <canvas
-          ref={canvasRef}
-          style={{ display: "block", width: "100%", height: "100%" }}
-        />
-
         <div
+          className="sticky top-0 flex h-screen w-full items-center justify-center overflow-hidden"
           style={{
-            position: "absolute",
-            inset: 0,
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            textAlign: "center",
-            color: "#fff",
-            pointerEvents: "none",
-            textShadow: "0 2px 20px rgba(0,0,0,0.45)",
+            paddingLeft: padX,
+            paddingRight: padX,
+            transition: "none",
           }}
         >
-          <h1 style={{ fontSize: "clamp(2rem, 6vw, 5rem)", margin: 0, fontWeight: 700 }}>
-            Scroll to Play
-          </h1>
-          <p style={{ opacity: 0.8, marginTop: "0.75rem", letterSpacing: "0.04em" }}>
-            ↓ keep scrolling
-          </p>
-        </div>
-
-        {!ready && (
           <div
+            className="pointer-events-none relative overflow-hidden rounded-lg bg-[#111] will-change-[width,height,clip-path]"
             style={{
-              position: "absolute",
-              inset: 0,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              background: "#000",
-              color: "#fff",
-              fontVariantNumeric: "tabular-nums",
+              width: maskW,
+              height: maskH,
+              borderRadius: maskCornerRadius,
+              clipPath: clip,
+              transition: "none",
             }}
           >
-            Loading… {loadPct}%
+            <video
+              ref={videoRef}
+              src={src}
+              muted
+              playsInline
+              loop
+              preload="auto"
+              className="block h-full w-full object-cover"
+            />
+
+            {!ready && (
+              <div className="absolute inset-0 flex items-center justify-center bg-[#1a1a2e] text-[11px] text-white/60 tabular-nums">
+                Loading… {loadPct}%
+              </div>
+            )}
+
+            <div className="pointer-events-none absolute inset-0 bg-[repeating-linear-gradient(0deg,transparent,transparent_3px,rgba(255,255,255,0.03)_3px,rgba(255,255,255,0.03)_4px)]" />
+
+            
           </div>
-        )}
+        </div>
       </div>
-    </div>
+
+    
+    </>
   );
 }

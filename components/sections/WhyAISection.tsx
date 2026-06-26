@@ -20,11 +20,6 @@ export default function WhyAISection() {
         </div>
       </div>
 
-      <footer className="makonis-container mt-24 border-t border-white/10 pt-8 md:mt-32">
-        <p className="text-center">
-          &copy; {new Date().getFullYear()} Makonis. All rights reserved.
-        </p>
-      </footer>
     </section>
   );
 }
