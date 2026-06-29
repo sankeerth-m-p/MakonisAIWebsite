@@ -16,7 +16,7 @@ export const SNAP_SECTION_IDS = [
 ] as const;
 
 /** Full-viewport snap stops — one section per gesture (scroll-snap-stop: always). */
-export const SNAP_SECTION_CLASS = "snap-section min-h-screen pt-24";
+export const SNAP_SECTION_CLASS = "snap-section min-h-screen pt-24 ";
 
 /** Tall sections: snap at entry, free scroll through interior (e.g. Impact horizontal scrub). */
 export const SNAP_SECTION_FLOW_CLASS =

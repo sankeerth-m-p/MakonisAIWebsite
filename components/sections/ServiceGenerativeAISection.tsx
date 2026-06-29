@@ -26,38 +26,40 @@ const UFO_PATH: PathKeyframe[] = [
 
 export default function ServiceGenerativeAISection() {
   return (
-    <section
+    <div
       id="service-generative-ai"
-      className={`${gradient.service2} snap-section relative flex min-h-screen flex-col overflow-visible pt-24`}
+      className={`${gradient.service2} h-[120vh]  flex flex-col justify-center`}
       style={{ background: "var(--gradient-service2)" }}
     >
-      <NightSkyStarsOverlay /> 
-      <UfoScrollReveal
-        src="/ufo.webm"
-        height="26vh"
-        path={UFO_PATH}
-        progressMode="enterExit"
-      />
-      <div className="pointer-events-none absolute top-[12%] right-[5%] z-5 translate-x-1/2 -translate-y-1/3">
-        <GlobeCometArcs size={400} className="opacity-80" />
-      </div>
-      <div className="pointer-events-none absolute inset-0 z-1">
-        <div className="absolute left-[40%] top-[45%] z-10 -translate-x-1/2 -translate-y-1/2">
-          <NetworkGlobe size={300} rotationSpeed={1.4} className="opacity-80" />
-        </div>
-        <div className="absolute left-[50%] top-[70%] z-20 -translate-x-1/2 -translate-y-1/2">
-          <NetworkGlobe size={150} rotationSpeed={1} className="opacity-80" />
-        </div>
-        <div className="absolute left-[25%] top-[50%] z-20 -translate-x-1/2 -translate-y-1/2">
-          <NetworkGlobe size={100} rotationSpeed={3} className="opacity-80" />
-        </div>
-      </div>
-      <div className="relative z-10 makonis-container mt-auto flex w-full flex-col pb-10">
-        <ServiceContentLabel
-          title="Generative AI Development"
-          description="Harness the power of Large Language Models to create content, code, and more."
+      <section className="relative flex h-screen flex-col overflow-visible pt-24">
+        <NightSkyStarsOverlay />
+        <UfoScrollReveal
+          src="/ufo.webm"
+          height="26vh"
+          path={UFO_PATH}
+          progressMode="enterExit"
         />
-      </div>
-    </section>
+        <div className="pointer-events-none absolute top-[12%] right-[5%] z-5 translate-x-1/2 -translate-y-1/3">
+          <GlobeCometArcs size={400} className="opacity-80" />
+        </div>
+        <div className="pointer-events-none absolute inset-0 z-1">
+          <div className="absolute left-[40%] top-[45%] z-10 -translate-x-1/2 -translate-y-1/2">
+            <NetworkGlobe size={300} rotationSpeed={1.4} className="opacity-80" />
+          </div>
+          <div className="absolute left-[50%] top-[70%] z-20 -translate-x-1/2 -translate-y-1/2">
+            <NetworkGlobe size={150} rotationSpeed={1} className="opacity-80" />
+          </div>
+          <div className="absolute left-[25%] top-[50%] z-20 -translate-x-1/2 -translate-y-1/2">
+            <NetworkGlobe size={100} rotationSpeed={3} className="opacity-80" />
+          </div>
+        </div>
+        <div className="relative z-10 makonis-container mt-auto flex w-full flex-col pb-10">
+          <ServiceContentLabel
+            title="Generative AI Development"
+            description="Harness the power of Large Language Models to create content, code, and more."
+          />
+        </div>
+      </section>
+    </div>
   );
 }
