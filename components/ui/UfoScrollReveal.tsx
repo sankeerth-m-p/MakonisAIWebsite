@@ -105,6 +105,8 @@ export default function UfoScrollReveal({
 
     // Per-frame ease factor (0–1). Higher = snappier, lower = floatier glide.
     const SMOOTHING = 0.12;
+    // Extra catch-up when far behind scroll — ease-out feel (fast start, slow settle).
+    const EASE_OUT_BOOST = 3.5;
     // How strongly speed maps to forward lean, and how fast it settles flat.
     const TILT_PER_SPEED = 3000; // deg per unit-progress/frame of velocity
     const MAX_TILT = 16; // clamp so it never over-rotates
@@ -126,8 +128,11 @@ export default function UfoScrollReveal({
 
     const tick = () => {
       target = readTarget();
-      // Frame-rate independent exponential smoothing.
-      current += (target - current) * SMOOTHING;
+      // Exponential lerp with ease-out bias: larger steps when far from target.
+      const gap = target - current;
+      const dist = Math.abs(gap);
+      const alpha = Math.min(1, SMOOTHING * (1 + EASE_OUT_BOOST * (1 - (1 - dist) ** 2)));
+      current += gap * alpha;
       if (Math.abs(target - current) < 0.0002) current = target;
 
       applyPosition(current);

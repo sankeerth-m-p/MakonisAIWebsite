@@ -1,4 +1,5 @@
 import NightSkyStarsOverlay from "@/components/NightSkyStarsOverlay";
+import JeepScrollReveal from "@/components/ui/JeepScrollReveal";
 import ServiceContentLabel from "@/components/ui/ServiceContentLabel";
 import { SECTION_GRADIENT_CLASS as gradient } from "@/data/gradients";
 import { SNAP_SECTION_CLASS } from "@/lib/sectionSnap";
@@ -11,6 +12,7 @@ export default function ServiceDataEngineeringSection() {
       style={{ background: "var(--gradient-service3)" }}
     >
       <NightSkyStarsOverlay heightPercent={20} position="top" />
+      <JeepScrollReveal />
       <div className="relative z-10 makonis-container flex w-full flex-col pt-[30vh] pb-10 md:pt-[28vh] lg:pt-[26vh]">
         <ServiceContentLabel
           title="Data Strategy & Engineering"

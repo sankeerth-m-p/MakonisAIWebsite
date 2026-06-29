@@ -131,6 +131,21 @@ button {
 .animate-char-up { animation: charUp 0.8s ease forwards; }
 .animate-char-reveal { animation: charReveal 0.8s ease forwards; }
 
+@keyframes boat-wave-flow {
+  from { transform: translateX(calc(var(--tile) * -1px)); }
+  to { transform: translateX(0); }
+}
+
+.boat-wave-flow {
+  animation: boat-wave-flow var(--dur, 24s) linear infinite;
+  animation-delay: var(--delay, 0s);
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .boat-wave-flow { animation: none; }
+}
+
 @keyframes modalIn {
   from { opacity: 0; }
   to { opacity: 1; }

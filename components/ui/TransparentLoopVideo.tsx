@@ -8,6 +8,8 @@ type Props = {
   /** Video height; width follows aspect ratio. CSS length, e.g. "10vh". */
   height?: string;
   viewportThreshold?: number;
+  /** When set, parent controls play/pause instead of viewport intersection. */
+  playing?: boolean;
 };
 
 export default function TransparentLoopVideo({
@@ -15,11 +17,14 @@ export default function TransparentLoopVideo({
   className = "",
   height = "10vh",
   viewportThreshold = 0.15,
+  playing,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
+    if (playing !== undefined) return;
+
     const container = containerRef.current;
     const video = videoRef.current;
     if (!container || !video) return;
@@ -37,7 +42,20 @@ export default function TransparentLoopVideo({
 
     observer.observe(container);
     return () => observer.disconnect();
-  }, [viewportThreshold]);
+  }, [playing, viewportThreshold]);
+
+  useEffect(() => {
+    if (playing === undefined) return;
+
+    const video = videoRef.current;
+    if (!video) return;
+
+    if (playing) {
+      video.play().catch(() => {});
+    } else {
+      video.pause();
+    }
+  }, [playing]);
 
   return (
     <div ref={containerRef} className={className}>
