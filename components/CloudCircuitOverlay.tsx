@@ -546,6 +546,7 @@ export default function CloudCircuitOverlay({
     }
 
     function resize() {
+      if (!wrap || !canvas) return;
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
       const rect = wrap.getBoundingClientRect();
       W = Math.max(1, Math.round(rect.width));
