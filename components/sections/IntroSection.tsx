@@ -1,3 +1,4 @@
+import ParallaxFloatGroup from "@/components/ui/ParallaxFloatGroup";
 import { SECTION_GRADIENT_CLASS as gradient } from "@/data/gradients";
 
 export default function IntroSection() {
@@ -5,7 +6,7 @@ export default function IntroSection() {
     <div id="intro" className={`${gradient.intro} h-[100vh] flex flex-col justify-center`}>
       <section className="relative flex h-screen flex-col justify-end overflow-hidden pb-24 md:pb-32 lg:pb-40">
         <div className="makonis-container relative z-10">
-          <div className="mx-auto max-w-3xl text-center">
+          <ParallaxFloatGroup className="mx-auto max-w-3xl text-center">
             <h2 className="mt-6">
               We are the engine behind your AI transformation.
             </h2>
@@ -14,7 +15,7 @@ export default function IntroSection() {
               intelligence — bridging the gap between cutting-edge technology
               and real-world business outcomes.
             </p>
-          </div>
+          </ParallaxFloatGroup>
         </div>
       </section>
     </div>

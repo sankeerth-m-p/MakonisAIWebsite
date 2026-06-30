@@ -723,6 +723,13 @@ export default function WeatherBackground({
       return fromStorm + toStorm;
     };
 
+    // Last gradient string actually written to the DOM — lets us skip the
+    // expensive full-screen background repaint when nothing has changed.
+    let lastSkyBg = "";
+    // Whether the canvas currently has anything painted on it (so we know
+    // whether an extra clearRect is needed once everything goes static).
+    let canvasDirty = false;
+
     const loop = () => {
       raf = requestAnimationFrame(loop);
 
@@ -730,7 +737,8 @@ export default function WeatherBackground({
       let displayed = displayedHourRef.current;
       let delta = ((target - displayed + 36) % 24) - 12;
       if (delta === -12) delta = 12;
-      if (Math.abs(delta) <= 0.004) {
+      const hourSettling = Math.abs(delta) > 0.004;
+      if (!hourSettling) {
         displayed = target;
       } else {
         displayed += delta * 0.1;
@@ -744,7 +752,8 @@ export default function WeatherBackground({
       }
 
       let blend = blendRef.current;
-      if (blend < 1) {
+      const blending = blend < 1;
+      if (blending) {
         blend = Math.min(1, blend + blendStep);
         blendRef.current = blend;
       }
@@ -755,21 +764,44 @@ export default function WeatherBackground({
 
       const fromW = fromWeatherRef.current;
       const toW = toWeatherRef.current;
-      const stops = blendedSkyStops(displayed, fromW, toW, blend);
-      sky.style.background = skyGradientFromStops(stops);
+
+      // Only touch the fixed full-screen gradient layer when the hour is still
+      // easing or a weather cross-fade is in progress. Re-parsing + repainting
+      // this gradient every frame was the single biggest source of jank.
+      if (hourSettling || blending) {
+        const stops = blendedSkyStops(displayed, fromW, toW, blend);
+        const nextBg = skyGradientFromStops(stops);
+        if (nextBg !== lastSkyBg) {
+          sky.style.background = nextBg;
+          lastSkyBg = nextBg;
+        }
+      }
 
       const lightFrom = CONFIG.weather[fromW].light;
       const lightTo = CONFIG.weather[toW].light;
       const lightStrength = lightFrom + (lightTo - lightFrom) * blend;
 
-      ctx.clearRect(0, 0, W, H);
-      drawLight(lightStrength);
+      // Does anything on the canvas still need to move this frame?
+      const hasParticles =
+        (1 - blend > 0.004 && particlesFrom.length > 0) ||
+        particlesTo.length > 0;
+      const needsCanvas = hasParticles || lightStrength > 0;
 
-      const outOpacity = 1 - blend;
-      const inOpacity = blend;
-      if (outOpacity > 0.004) drawParticleSet(particlesFrom, outOpacity, displayed);
-      if (inOpacity > 0.004 || blend >= 1) {
-        drawParticleSet(particlesTo, blend >= 1 ? 1 : inOpacity, displayed);
+      if (needsCanvas) {
+        ctx.clearRect(0, 0, W, H);
+        drawLight(lightStrength);
+
+        const outOpacity = 1 - blend;
+        const inOpacity = blend;
+        if (outOpacity > 0.004) drawParticleSet(particlesFrom, outOpacity, displayed);
+        if (inOpacity > 0.004 || blend >= 1) {
+          drawParticleSet(particlesTo, blend >= 1 ? 1 : inOpacity, displayed);
+        }
+        canvasDirty = true;
+      } else if (canvasDirty) {
+        // Nothing to draw and nothing settling — clear once, then leave it.
+        ctx.clearRect(0, 0, W, H);
+        canvasDirty = false;
       }
 
       const storm = stormIntensity(fromW, toW, blend);

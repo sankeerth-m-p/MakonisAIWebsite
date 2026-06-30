@@ -1,20 +1,29 @@
-import AnimatedButton from '@/components/ui/AnimatedButton';
+"use client";
+
+import AnimatedButton from "@/components/ui/AnimatedButton";
+import ParallaxFloatGroup from "@/components/ui/ParallaxFloatGroup";
+import {
+  useServiceDetailsOverlay,
+  type ServiceDetailContent,
+} from "@/components/ui/ServiceDetailsOverlayProvider";
 
 interface ServiceContentLabelProps {
   title: string;
   description: string;
   buttonText?: string;
-  onButtonClick?: () => void;
+  details: ServiceDetailContent;
 }
 
 export default function ServiceContentLabel({
   title,
   description,
-  buttonText = 'Learn More',
-  onButtonClick,
+  buttonText = "Learn More",
+  details,
 }: ServiceContentLabelProps) {
+  const { openServiceDetails } = useServiceDetailsOverlay();
+
   return (
-    <div className="flex w-lg flex-col items-start justify-start">
+    <ParallaxFloatGroup className="flex w-lg flex-col items-start justify-start">
       <h3>{title}</h3>
 
       <div className="mt-5 h-px w-full bg-white" />
@@ -22,8 +31,10 @@ export default function ServiceContentLabel({
       <p className="mt-8 max-w-md">{description}</p>
 
       <div className="mt-8">
-        <AnimatedButton onClick={onButtonClick}>{buttonText}</AnimatedButton>
+        <AnimatedButton onClick={() => openServiceDetails(details)}>
+          {buttonText}
+        </AnimatedButton>
       </div>
-    </div>
+    </ParallaxFloatGroup>
   );
 }

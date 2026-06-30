@@ -13,7 +13,7 @@ import {
 
 import TransparentLoopVideo from "./TransparentLoopVideo";
 
-const CONE_LEN = 620;
+const CONE_LEN = 920;
 const CONE_ANGLE = 20;
 const CONE_EDGE = 14;
 const WAKE_STILL_MS = 130;
@@ -25,25 +25,31 @@ const WAKE_MAX_SCROLL_SPEED = 0.006;
 const WAKE_LENGTH_SMOOTHING = 0.14;
 const WAKE_MIN_ANGLE_SCALE = 0.62;
 const WAKE_MIN_FADE_START = 0.36;
-const WAKE_MAX_FADE_START = 0.82;
+const WAKE_MAX_FADE_START = 0.9;
 const WAKE_MIN_BRIGHTNESS = 0.62;
 const WAKE_MAX_BRIGHTNESS = 1.38;
 const WAKE_WAVE_SCALE_X = 1.55;
 const WAKE_WAVE_SCALE_Y = 1.42;
-const SPOTLIGHT_ANCHOR_FROM_RIGHT = 0.3;
+const SPOTLIGHT_ANCHOR_FROM_RIGHT = 0.48;
 const WAKE_WATERLINE_OFFSET = 0.12;
 const WAKE_MIN_REACH_BOAT_FACTOR = 0.48;
 const WAKE_MIN_REACH_PX = 72;
 const WAKE_BOTTOM_BLEED_PX =
-  Math.ceil(CONE_LEN * Math.tan(((CONE_ANGLE / 2) * Math.PI) / 180)) + 32;
+  Math.ceil(
+    (CONE_LEN * Math.tan(((CONE_ANGLE / 2) * Math.PI) / 180) + 56) /
+      (2 - WAKE_WAVE_SCALE_Y),
+  ) + 120;
+
+/** Reserved space below the section so the wake can paint without being clipped. */
+export const BOAT_WAKE_BOTTOM_BLEED_PX = WAKE_BOTTOM_BLEED_PX;
 const WAKE_SIDE_BLEED_PX =
   Math.ceil(CONE_LEN * Math.tan(((CONE_ANGLE / 2) * Math.PI) / 180)) + 64;
 
-const MINI_BOAT_HEIGHT = "17vh";
-const MINI_PROGRESS_LAG = 0.09;
-const MINI_SMOOTHING = 0.028;
-const MINI_WAKE_SCALE = 0.58;
-const MINI_WAVE_FIELD_SCALE = 0.62;
+// const MINI_BOAT_HEIGHT = "17vh";
+// const MINI_PROGRESS_LAG = 0.09;
+// const MINI_SMOOTHING = 0.028;
+// const MINI_WAKE_SCALE = 0.58;
+// const MINI_WAVE_FIELD_SCALE = 0.62;
 
 type WakeAnimState = {
   wakePower: number;
@@ -246,7 +252,7 @@ export const BOAT_PATH: PathKeyframe[] = [
   { t: 1.0, x: -0.55, y: 1 },
 ];
 
-export const MINI_BOAT_PATH = BOAT_PATH;
+// export const MINI_BOAT_PATH = BOAT_PATH;
 
 function BoatHull({
   src,
@@ -338,9 +344,10 @@ function WakeLayer({
     >
       <svg
         ref={wavesSvgRef}
-        className="absolute inset-0 block h-full w-full"
+        className="absolute inset-0 block h-full w-full overflow-visible"
         shapeRendering="geometricPrecision"
-        style={{ willChange: "transform" }}
+        style={{ willChange: "transform", overflow: "visible" }}
+        overflow="visible"
         aria-hidden
       />
     </div>
@@ -372,16 +379,16 @@ function BoatFleet({
 }: FleetProps) {
   const sectionRef = useRef<HTMLElement | null>(null);
   const groupRef = useRef<HTMLDivElement>(null);
-  const miniOffsetRef = useRef<HTMLDivElement>(null);
+  // const miniOffsetRef = useRef<HTMLDivElement>(null);
   const mainHullRef = useRef<HTMLDivElement>(null);
   const mainSternRef = useRef<HTMLDivElement>(null);
   const mainBowRef = useRef<HTMLDivElement>(null);
-  const miniSternRef = useRef<HTMLDivElement>(null);
-  const miniBowRef = useRef<HTMLDivElement>(null);
+  // const miniSternRef = useRef<HTMLDivElement>(null);
+  // const miniBowRef = useRef<HTMLDivElement>(null);
   const mainRevealRef = useRef<HTMLDivElement>(null);
-  const miniRevealRef = useRef<HTMLDivElement>(null);
+  // const miniRevealRef = useRef<HTMLDivElement>(null);
   const mainWavesRef = useRef<SVGSVGElement>(null);
-  const miniWavesRef = useRef<SVGSVGElement>(null);
+  // const miniWavesRef = useRef<SVGSVGElement>(null);
   const progressRef = useRef(0);
 
   const [guideSize, setGuideSize] = useState({ w: 0, h: 0 });
@@ -392,19 +399,19 @@ function BoatFleet({
   const activePath = editorMode && editorKeyframes ? editorKeyframes : path;
 
   const applyGroupPosition = useCallback(
-    (mainProgress: number, miniProgress: number) => {
+    (mainProgress: number /*, miniProgress: number */) => {
       const group = groupRef.current;
-      const miniOffset = miniOffsetRef.current;
+      // const miniOffset = miniOffsetRef.current;
       const section = sectionRef.current;
       if (!group || !section) return;
 
       const w = section.clientWidth;
       const mainX = samplePathAtProgressLinear(activePath, mainProgress).x;
-      const miniX = samplePathAtProgressLinear(activePath, miniProgress).x;
+      // const miniX = samplePathAtProgressLinear(activePath, miniProgress).x;
       group.style.transform = `translate3d(calc(${mainX * w}px - 50%), 0, 0)`;
-      if (miniOffset) {
-        miniOffset.style.transform = `translate3d(${(miniX - mainX) * w}px, 0, 0)`;
-      }
+      // if (miniOffset) {
+      //   miniOffset.style.transform = `translate3d(${(miniX - mainX) * w}px, 0, 0)`;
+      // }
     },
     [activePath],
   );
@@ -417,9 +424,10 @@ function BoatFleet({
 
     const syncLayout = () => {
       const mainW = mainHullRef.current?.offsetWidth ?? 280;
-      const miniW = miniOffsetRef.current?.offsetWidth ?? 170;
+      // const miniW = miniOffsetRef.current?.offsetWidth ?? 170;
       setWakeBleed(
-        mergeWakeBleed([activePath, activePath], section.clientWidth, [mainW, miniW]),
+        mergeWakeBleed([activePath], section.clientWidth, [mainW]),
+        // mergeWakeBleed([activePath, activePath], section.clientWidth, [mainW, miniW]),
       );
     };
 
@@ -427,7 +435,7 @@ function BoatFleet({
     const ro = new ResizeObserver(syncLayout);
     ro.observe(section);
     if (mainHullRef.current) ro.observe(mainHullRef.current);
-    if (miniOffsetRef.current) ro.observe(miniOffsetRef.current);
+    // if (miniOffsetRef.current) ro.observe(miniOffsetRef.current);
     return () => ro.disconnect();
   }, [activePath]);
 
@@ -444,18 +452,19 @@ function BoatFleet({
 
     let target = 0;
     let current = 0;
-    let miniCurrent = 0;
+    // let miniCurrent = 0;
     let travel = 0;
     let anchorRaw = 0;
     let lastTravelFloor = 0;
     let lastCurrent = 0;
-    let lastMiniCurrent = 0;
+    // let lastMiniCurrent = 0;
     let lastVelocity = 0;
-    let lastMiniVelocity = 0;
+    // let lastMiniVelocity = 0;
     let trim = 0;
-    let miniTrim = 0;
+    // let miniTrim = 0;
     let raf = 0;
     let lastStateValue = -1;
+    let lastFrameTs = 0;
     let running = true;
 
     const mainWake: WakeAnimState = {
@@ -464,12 +473,12 @@ function BoatFleet({
       wakeTargetPower: 0,
       wakeStillTimer: null,
     };
-    const miniWake: WakeAnimState = {
-      wakePower: 0,
-      wakeLength: 0,
-      wakeTargetPower: 0,
-      wakeStillTimer: null,
-    };
+    // const miniWake: WakeAnimState = {
+    //   wakePower: 0,
+    //   wakeLength: 0,
+    //   wakeTargetPower: 0,
+    //   wakeStillTimer: null,
+    // };
 
     const scheduleTick = () => {
       if (raf || !running) return;
@@ -481,7 +490,7 @@ function BoatFleet({
       const animationsEnabled = editorMode || active;
       setVideosPlaying(animationsEnabled);
       setWakeAnimations(mainRevealRef.current, animationsEnabled);
-      setWakeAnimations(miniRevealRef.current, animationsEnabled);
+      // setWakeAnimations(miniRevealRef.current, animationsEnabled);
       if (animationsEnabled) scheduleTick();
     };
 
@@ -490,6 +499,13 @@ function BoatFleet({
       { rootMargin: "160px 0px", threshold: 0 },
     );
     observer.observe(section);
+
+    const onScroll = () => {
+      if (editorMode || sectionActiveRef.current) scheduleTick();
+    };
+    const onResize = () => scheduleTick();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onResize);
 
     const resetWake = (state: WakeAnimState) => {
       state.wakeTargetPower = 0;
@@ -510,14 +526,14 @@ function BoatFleet({
         lastTravelFloor = 0;
         current = 0;
         lastCurrent = 0;
-        miniCurrent = 0;
-        lastMiniCurrent = 0;
+        // miniCurrent = 0;
+        // lastMiniCurrent = 0;
         lastVelocity = 0;
-        lastMiniVelocity = 0;
+        // lastMiniVelocity = 0;
         trim = 0;
-        miniTrim = 0;
+        // miniTrim = 0;
         resetWake(mainWake);
-        resetWake(miniWake);
+        // resetWake(miniWake);
         return 0;
       }
 
@@ -531,9 +547,9 @@ function BoatFleet({
 
     target = readTarget();
     current = target;
-    miniCurrent = Math.max(0, target - MINI_PROGRESS_LAG);
+    // miniCurrent = Math.max(0, target - MINI_PROGRESS_LAG);
     lastCurrent = current;
-    lastMiniCurrent = miniCurrent;
+    // lastMiniCurrent = miniCurrent;
 
     const SMOOTHING = 0.055;
     const EASE_OUT_BOOST = 2.2;
@@ -587,6 +603,13 @@ function BoatFleet({
       if (!running) return;
       if (!editorMode && !sectionActiveRef.current) return;
 
+      const now = performance.now();
+      if (now - lastFrameTs < 14) {
+        scheduleTick();
+        return;
+      }
+      lastFrameTs = now;
+
       const prevTravelFloor = lastTravelFloor;
       target = readTarget();
       lastTravelFloor = Math.floor(travel);
@@ -596,13 +619,13 @@ function BoatFleet({
         current = target;
         lastCurrent = current;
         lastVelocity = 0;
-        miniCurrent = Math.max(0, target - MINI_PROGRESS_LAG);
-        lastMiniCurrent = miniCurrent;
-        lastMiniVelocity = 0;
+        // miniCurrent = Math.max(0, target - MINI_PROGRESS_LAG);
+        // lastMiniCurrent = miniCurrent;
+        // lastMiniVelocity = 0;
       } else {
         current = advanceProgress(current, target, SMOOTHING, false);
-        const miniTarget = Math.max(0, current - MINI_PROGRESS_LAG);
-        miniCurrent = advanceProgress(miniCurrent, miniTarget, MINI_SMOOTHING, false);
+        // const miniTarget = Math.max(0, current - MINI_PROGRESS_LAG);
+        // miniCurrent = advanceProgress(miniCurrent, miniTarget, MINI_SMOOTHING, false);
       }
 
       const mainMotion = sampleVelocity(lastCurrent, current, lastVelocity);
@@ -610,29 +633,29 @@ function BoatFleet({
       lastCurrent = current;
       lastVelocity = mainMotion.smoothed;
 
-      const miniMotion = sampleVelocity(lastMiniCurrent, miniCurrent, lastMiniVelocity);
-      const prevMiniVelocity = lastMiniVelocity;
-      lastMiniCurrent = miniCurrent;
-      lastMiniVelocity = miniMotion.smoothed;
+      // const miniMotion = sampleVelocity(lastMiniCurrent, miniCurrent, lastMiniVelocity);
+      // const prevMiniVelocity = lastMiniVelocity;
+      // lastMiniCurrent = miniCurrent;
+      // lastMiniVelocity = miniMotion.smoothed;
 
       trim = sampleTrim(mainMotion.smoothed, prevMainVelocity, trim);
-      miniTrim = sampleTrim(miniMotion.smoothed, prevMiniVelocity, miniTrim);
+      // miniTrim = sampleTrim(miniMotion.smoothed, prevMiniVelocity, miniTrim);
 
       if (mainSternRef.current && mainBowRef.current) {
         applyTrim(mainSternRef.current, mainBowRef.current, trim);
       }
-      if (miniSternRef.current && miniBowRef.current) {
-        applyTrim(miniSternRef.current, miniBowRef.current, miniTrim);
-      }
+      // if (miniSternRef.current && miniBowRef.current) {
+      //   applyTrim(miniSternRef.current, miniBowRef.current, miniTrim);
+      // }
 
       progressRef.current = current;
-      applyGroupPosition(current, miniCurrent);
+      applyGroupPosition(current /*, miniCurrent */);
 
       const offScreen = isSectionFullyOffScreen();
       const mainReveal = mainRevealRef.current;
-      const miniReveal = miniRevealRef.current;
+      // const miniReveal = miniRevealRef.current;
       const mainHull = mainHullRef.current;
-      const miniHull = miniOffsetRef.current;
+      // const miniHull = miniOffsetRef.current;
       const mainRevealRect = offScreen || !mainReveal ? null : mainReveal.getBoundingClientRect();
 
       if (mainReveal && mainHull) {
@@ -648,43 +671,56 @@ function BoatFleet({
           offScreen,
         );
       }
-      if (miniReveal && miniHull) {
-        const miniRevealRect = offScreen || !miniReveal ? null : miniReveal.getBoundingClientRect();
-        const anchor = offScreen || !miniRevealRect
-          ? null
-          : getBoatWakeAnchor(miniHull, miniReveal, miniRevealRect);
-        applyWakeFrame(
-          miniReveal,
-          miniWavesRef.current,
-          anchor,
-          Math.abs(miniMotion.smoothed),
-          miniWake,
-          offScreen,
-          MINI_WAKE_SCALE,
-        );
-      }
+      // if (miniReveal && miniHull) {
+      //   const miniRevealRect = offScreen || !miniReveal ? null : miniReveal.getBoundingClientRect();
+      //   const anchor = offScreen || !miniRevealRect
+      //     ? null
+      //     : getBoatWakeAnchor(miniHull, miniReveal, miniRevealRect);
+      //   applyWakeFrame(
+      //     miniReveal,
+      //     miniWavesRef.current,
+      //     anchor,
+      //     Math.abs(miniMotion.smoothed),
+      //     miniWake,
+      //     offScreen,
+      //     MINI_WAKE_SCALE,
+      //   );
+      // }
 
       if (onScrollProgressChange && Math.abs(current - lastStateValue) > 0.004) {
         lastStateValue = current;
         onScrollProgressChange(current);
       }
 
-      scheduleTick();
+      const keepAnimating =
+        editorMode ||
+        Math.abs(mainMotion.smoothed) > 0.00012 ||
+        // Math.abs(miniMotion.smoothed) > 0.00012 ||
+        mainWake.wakePower > 0.02 ||
+        // miniWake.wakePower > 0.02 ||
+        mainWake.wakeLength > 0.02 ||
+        // miniWake.wakeLength > 0.02 ||
+        Math.abs(trim) > 0.005;
+        // Math.abs(miniTrim) > 0.005;
+
+      if (keepAnimating) scheduleTick();
     };
 
-    if (editorMode) scheduleTick();
+    scheduleTick();
 
     return () => {
       running = false;
       observer.disconnect();
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onResize);
       cancelAnimationFrame(raf);
       if (mainWake.wakeStillTimer) clearTimeout(mainWake.wakeStillTimer);
-      if (miniWake.wakeStillTimer) clearTimeout(miniWake.wakeStillTimer);
+      // if (miniWake.wakeStillTimer) clearTimeout(miniWake.wakeStillTimer);
     };
   }, [applyGroupPosition, editorMode, onScrollProgressChange]);
 
   useEffect(() => {
-    applyGroupPosition(progressRef.current, Math.max(0, progressRef.current - MINI_PROGRESS_LAG));
+    applyGroupPosition(progressRef.current /*, Math.max(0, progressRef.current - MINI_PROGRESS_LAG) */);
   }, [activePath, applyGroupPosition]);
 
   useEffect(() => {
@@ -713,14 +749,14 @@ function BoatFleet({
   const sortedPath = [...activePath].sort((a, b) => a.t - b.t);
 
   return (
-    <div className="pointer-events-none absolute inset-0 z-5">
-      <WakeLayer
+    <div className="pointer-events-none absolute inset-0 z-5 overflow-visible" style={{ overflow: "visible" }}>
+      {/* <WakeLayer
         revealRef={miniRevealRef}
         wavesSvgRef={miniWavesRef}
         wakeBleed={wakeBleed}
         zIndex={0}
         waveFieldScale={MINI_WAVE_FIELD_SCALE}
-      />
+      /> */}
       <WakeLayer
         revealRef={mainRevealRef}
         wavesSvgRef={mainWavesRef}
@@ -794,7 +830,7 @@ function BoatFleet({
               playing={editorMode || videosPlaying}
             />
           </div>
-          <div ref={miniOffsetRef} style={{ willChange: "transform" }}>
+          {/* <div ref={miniOffsetRef} style={{ willChange: "transform" }}>
             <BoatHull
               src={src}
               height={MINI_BOAT_HEIGHT}
@@ -802,7 +838,7 @@ function BoatFleet({
               bowRef={miniBowRef}
               playing={editorMode || videosPlaying}
             />
-          </div>
+          </div> */}
         </div>
       </div>
     </div>

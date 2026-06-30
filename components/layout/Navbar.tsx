@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { NAV_LINKS } from "@/data/sections";
 import { scrollToSection } from "@/lib/scrollToSection";
 import { registerDoorRevealTarget } from "@/lib/doorReveal";
+import { registerServicePanelRevealTarget } from "@/lib/servicePanelMask";
 
 const GLASS_STYLE = {
   background: "rgba(244, 247, 251, 0.10)",
@@ -28,6 +29,7 @@ export default function Navbar() {
   const [activeId, setActiveId] = useState("hero");
   const [pastHero, setPastHero] = useState(false);
   const logoRevealRef = useRef<HTMLButtonElement | null>(null);
+  const servicePanelRevealRef = useRef<HTMLDivElement | null>(null);
   const glassRevealRef = useRef<HTMLDivElement | null>(null);
 
   // Reveal each navbar piece in sync with the hero's glass doors. Clipping the
@@ -43,6 +45,9 @@ export default function Navbar() {
       unsubs.push(
         registerDoorRevealTarget(glassRevealRef.current, { round: "0.375rem" }),
       );
+    }
+    if (servicePanelRevealRef.current) {
+      unsubs.push(registerServicePanelRevealTarget(servicePanelRevealRef.current));
     }
 
     return () => {
@@ -111,54 +116,56 @@ export default function Navbar() {
             />
           </button>
 
-          <div
-            ref={glassRevealRef}
-            className="ml-auto flex items-center gap-1 rounded-md p-1 lg:gap-2 lg:p-1.5"
-            style={GLASS_STYLE}
-          >
-            <ul className="hidden items-center  gap-0.5 md:flex lg:gap-1">
-              {NAV_LINKS.map((link) => (
-                <li key={link.id}>
-                  <button
-                    type="button"
-                    onClick={() => scrollToSection(link.id)}
-                    className={`rounded-full px-3 py-1.5 text-sm text-white transition-opacity duration-200 lg:px-3.5 ${
-                      activeId === link.id
-                        ? "font-medium opacity-100"
-                        : "opacity-70 hover:opacity-100"
-                    }`}
-                  >
-                    {link.label}
-                  </button>
-                </li>
-              ))}
-            </ul>
-
-            <button
-              type="button"
-              onClick={() => scrollToSection("exit-door", { block: "end" })}
-              className="flex shrink-0 items-center gap-2 rounded-md bg-black  text-sm text-white transition-opacity hover:opacity-90 md:px-4 md:py-3"
+          <div ref={servicePanelRevealRef} className="ml-auto">
+            <div
+              ref={glassRevealRef}
+              className="flex items-center gap-1 rounded-md p-1 lg:gap-2 lg:p-1.5"
+              style={GLASS_STYLE}
             >
-              Contact Us
-              <span
-                className="flex h-5 w-5 items-center justify-center rounded-full bg-white"
-                aria-hidden="true"
+              <ul className="hidden items-center  gap-0.5 md:flex lg:gap-1">
+                {NAV_LINKS.map((link) => (
+                  <li key={link.id}>
+                    <button
+                      type="button"
+                      onClick={() => scrollToSection(link.id)}
+                      className={`rounded-full px-3 py-1.5 text-sm text-white transition-opacity duration-200 lg:px-3.5 ${
+                        activeId === link.id
+                          ? "font-medium opacity-100"
+                          : "opacity-70 hover:opacity-100"
+                      }`}
+                    >
+                      {link.label}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+
+              <button
+                type="button"
+                onClick={() => scrollToSection("exit-door", { block: "end" })}
+                className="flex shrink-0 items-center gap-2 rounded-md bg-black  text-sm text-white transition-opacity hover:opacity-90 md:px-4 md:py-3"
               >
-                <svg
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  className="h-2.5 w-2.5 text-black"
+                Contact Us
+                <span
+                  className="flex h-5 w-5 items-center justify-center rounded-full bg-white"
+                  aria-hidden="true"
                 >
-                  <path
-                    d="M6 4l4 4-4 4"
-                    stroke="currentColor"
-                    strokeWidth="1.75"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </span>
-            </button>
+                  <svg
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    className="h-2.5 w-2.5 text-black"
+                  >
+                    <path
+                      d="M6 4l4 4-4 4"
+                      stroke="currentColor"
+                      strokeWidth="1.75"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </span>
+              </button>
+            </div>
           </div>
         </nav>
       </div>

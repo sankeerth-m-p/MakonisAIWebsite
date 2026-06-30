@@ -13,7 +13,7 @@ logoOutDistance={0.04}
       heading={
         <div className="flex flex-col  items-center">
           <h1 className="mt-8 font-bold max-w-2xl">
-            Where AI meets human potential.
+            Where AI Meets Potential.
           </h1>
         </div>
       }

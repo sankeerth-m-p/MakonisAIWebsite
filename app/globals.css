@@ -350,7 +350,8 @@ html.preloader-active body {
   position: absolute;
   border-radius: 50%;
   background: #ffffff;
-  will-change: opacity, transform;
+  /* No will-change: promoting hundreds of tiny stars to their own GPU layers
+     costs far more than it saves. The opacity/scale twinkle is cheap enough. */
 }
 
 .night-sky-meteor-anchor {

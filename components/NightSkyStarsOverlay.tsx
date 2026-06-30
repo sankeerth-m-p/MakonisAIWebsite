@@ -3,7 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 
 const STAR_COLORS = ["#ffffff", "#ffffff", "#cfe0ff", "#fff3cf", "#ffd9d9"];
-const STAR_COUNT = 600;
+// 600 stars = 600 independently-animating composited DOM layers, which is a
+// major GPU cost. 220 reads as just as dense at viewing distance.
+const STAR_COUNT = 220;
 
 type Star = {
   id: number;

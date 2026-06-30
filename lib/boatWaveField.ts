@@ -1,6 +1,6 @@
 const NS = "http://www.w3.org/2000/svg";
 
-const TRACK = 24;
+const TRACK = 14;
 const RADIUS = 6;
 const STROKE = 1.5;
 const MARGIN = 16;
@@ -63,6 +63,8 @@ export function generateBoatWaveField(
   const H = Math.max(180, r.height);
   const TILE = W;
   svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  svg.setAttribute("overflow", "visible");
+  svg.style.overflow = "visible";
   svg.innerHTML = "";
 
   let delay = 0;

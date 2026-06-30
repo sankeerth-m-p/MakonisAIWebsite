@@ -1,3 +1,4 @@
+import ParallaxFloatGroup from "@/components/ui/ParallaxFloatGroup";
 import { SECTION_GRADIENT_CLASS as gradient } from "@/data/gradients";
 import { SNAP_SECTION_CLASS } from "@/lib/sectionSnap";
 
@@ -5,10 +6,10 @@ export default function WhyAISection() {
   return (
     <section
       id="why-ai"
-      className={`${gradient.whyAi} ${SNAP_SECTION_CLASS} flex flex-col justify-center pb-24 md:pb-32 lg:pb-40`}
+      className={`${gradient.whyAi} min-h-[50vh] pt-40  flex flex-col justify-center pb-24 md:pb-32 lg:pb-40`}
     >
       <div className="makonis-container">
-        <div className="mx-auto max-w-3xl text-center">
+        <ParallaxFloatGroup className="mx-auto max-w-3xl text-center">
           <h2>
             Why AI? Because the future belongs to those who dare to dream.
           </h2>
@@ -17,9 +18,8 @@ export default function WhyAISection() {
             we help you navigate this landscape and harness AI&apos;s potential
             to drive meaningful, lasting results for your business.
           </p>
-        </div>
+        </ParallaxFloatGroup>
       </div>
-
     </section>
   );
 }

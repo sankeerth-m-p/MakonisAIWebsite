@@ -1,0 +1,8 @@
+⨯ Another next dev server is already running.
+
+- Local:        http://localhost:3001
+- PID:          17728
+- Dir:          D:\makonis\MakonisAIWebsite
+- Log:          .next\dev\logs\next-development.log
+
+Run taskkill /PID 17728 /F to stop it.

@@ -6,7 +6,7 @@ import {
   buildPathExportCode,
   buildSmoothPathD,
   getSectionEnterExitProgress,
-  samplePathAtProgressLinear,
+  samplePathAtProgress,
   type PathKeyframe,
 } from "@/lib/scrollPath";
 
@@ -33,7 +33,7 @@ const TILT_PER_SPEED = 900;
 
 export default function JeepScrollReveal({
   src = "/jeep.webm",
-  height = "50vh",
+  height = "60vh",
   className = "",
   path = JEEP_PATH,
   showPath = false,
@@ -42,6 +42,7 @@ export default function JeepScrollReveal({
   const outerRef = useRef<HTMLDivElement>(null);
   const tiltRef = useRef<HTMLDivElement>(null);
   const sectionRef = useRef<HTMLElement | null>(null);
+  const sectionActiveRef = useRef(editorMode);
   const progressRef = useRef(0);
 
   const [editorKeyframes, setEditorKeyframes] = useState<PathKeyframe[]>(path);
@@ -57,7 +58,7 @@ export default function JeepScrollReveal({
     const section = sectionRef.current;
     if (!outer) return;
 
-    const { x, y } = samplePathAtProgressLinear(activePath, progress);
+    const { x, y } = samplePathAtProgress(activePath, progress);
     const w = section?.clientWidth ?? window.innerWidth;
     const h = section?.clientHeight ?? window.innerHeight;
     outer.style.transform = `translate3d(calc(${x * w}px - 50%), calc(${y * h}px - 50%), 0)`;
@@ -70,52 +71,130 @@ export default function JeepScrollReveal({
 
     sectionRef.current = section;
 
-    let target = getSectionEnterExitProgress(section);
-    let current = target;
-    let lastCurrent = current;
+    const isSectionFullyOffScreen = () => {
+      const rect = section.getBoundingClientRect();
+      return rect.bottom <= 0 || rect.top >= window.innerHeight;
+    };
+
+    let target = 0;
+    let current = 0;
+    let travel = 0;
+    let anchorRaw = 0;
+    let lastTravelFloor = 0;
+    let lastCurrent = 0;
     let tilt = 0;
     let raf = 0;
     let lastStateValue = -1;
+    let running = true;
+    let sectionActive = editorMode;
 
-    const SMOOTHING = 0.28;
-    const EASE_OUT_BOOST = 2.5;
-    const TILT_SMOOTHING = 0.22;
+    const SMOOTHING = 0.16;
+    const EASE_OUT_BOOST = 1.8;
+    const TILT_SMOOTHING = 0.14;
 
-    const tick = () => {
-      target = getSectionEnterExitProgress(section);
-      const gap = target - current;
+    const readTarget = () => {
+      const raw = getSectionEnterExitProgress(section);
+      if (isSectionFullyOffScreen()) {
+        travel = 0;
+        anchorRaw = 0;
+        lastTravelFloor = 0;
+        current = 0;
+        lastCurrent = 0;
+        return 0;
+      }
+
+      if (raw !== anchorRaw) {
+        travel += Math.abs(raw - anchorRaw);
+        anchorRaw = raw;
+      }
+
+      return travel % 1;
+    };
+
+    const advanceProgress = (progress: number, progressTarget: number, wrappedLap: boolean) => {
+      if (wrappedLap) return progressTarget;
+      const gap = progressTarget - progress;
       const dist = Math.abs(gap);
       const alpha = Math.min(1, SMOOTHING * (1 + EASE_OUT_BOOST * (1 - (1 - dist) ** 2)));
-      current += gap * alpha;
-      if (Math.abs(target - current) < 0.0002) current = target;
+      let next = progress + gap * alpha;
+      if (Math.abs(progressTarget - next) < 0.0002) next = progressTarget;
+      return next;
+    };
 
-      progressRef.current = current;
-      applyPosition(current);
-
-      const velocity = current - lastCurrent;
-      lastCurrent = current;
-      const tiltTarget = Math.max(
-        -MAX_TILT,
-        Math.min(MAX_TILT, velocity * TILT_PER_SPEED),
-      );
-      tilt += (tiltTarget - tilt) * TILT_SMOOTHING;
-
-      const tiltEl = tiltRef.current;
-      if (tiltEl) {
-        tiltEl.style.transform = `rotate(${tilt}deg) perspective(900px) rotateX(${-tilt * 0.25}deg)`;
-      }
-
-      if (Math.abs(current - lastStateValue) > 0.004) {
-        lastStateValue = current;
-        setScrollProgress(current);
-      }
-
+    const scheduleTick = () => {
+      if (raf || !running) return;
       raf = requestAnimationFrame(tick);
     };
 
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [applyPosition]);
+    const tick = () => {
+      raf = 0;
+      if (!running) return;
+
+      const animateJeep = editorMode || sectionActive;
+
+      if (animateJeep) {
+        const prevTravelFloor = lastTravelFloor;
+        target = readTarget();
+        lastTravelFloor = Math.floor(travel);
+
+        const wrappedLap = lastTravelFloor > prevTravelFloor;
+        current = wrappedLap ? target : advanceProgress(current, target, false);
+
+        progressRef.current = current;
+        applyPosition(current);
+
+        const velocity = current - lastCurrent;
+        lastCurrent = current;
+        const tiltTarget = Math.max(
+          -MAX_TILT,
+          Math.min(MAX_TILT, velocity * TILT_PER_SPEED),
+        );
+        tilt += (tiltTarget - tilt) * TILT_SMOOTHING;
+
+        const tiltEl = tiltRef.current;
+        if (tiltEl) {
+          tiltEl.style.transform = `rotate(${tilt}deg) perspective(900px) rotateX(${-tilt * 0.25}deg)`;
+        }
+
+        if (Math.abs(current - lastStateValue) > 0.004) {
+          lastStateValue = current;
+          setScrollProgress(current);
+        }
+      }
+
+      if (animateJeep) {
+        scheduleTick();
+      }
+    };
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        sectionActive = entry.isIntersecting;
+        sectionActiveRef.current = sectionActive;
+        if (editorMode || sectionActive) scheduleTick();
+      },
+      { rootMargin: "160px 0px", threshold: 0 },
+    );
+    observer.observe(section);
+
+    target = readTarget();
+    current = target;
+    lastCurrent = current;
+
+    const rect = section.getBoundingClientRect();
+    const initiallyVisible = rect.bottom > 0 && rect.top < window.innerHeight;
+    if (initiallyVisible) {
+      sectionActive = true;
+      sectionActiveRef.current = true;
+    }
+    scheduleTick();
+
+    return () => {
+      running = false;
+      observer.disconnect();
+      cancelAnimationFrame(raf);
+    };
+  }, [applyPosition, editorMode]);
 
   useEffect(() => {
     applyPosition(progressRef.current);
@@ -204,7 +283,7 @@ export default function JeepScrollReveal({
     <>
       {(showPath || editorMode) && guideSize.w > 0 && (
         <svg
-          className="pointer-events-none absolute inset-0 z-30"
+          className="pointer-events-none absolute inset-0 z-20"
           width={guideSize.w}
           height={guideSize.h}
           aria-hidden
@@ -272,18 +351,20 @@ export default function JeepScrollReveal({
 
       <div
         ref={outerRef}
-        className={`absolute left-0 top-0 z-50 ${className}`}
+        className={`pointer-events-auto absolute left-0 top-0 z-20 ${className}`}
         style={{ transform: "translate3d(-50%, -50%, 0)", willChange: "transform" }}
       >
         <div
           ref={tiltRef}
           style={{ transformStyle: "preserve-3d", willChange: "transform" }}
         >
-          <TransparentLoopVideo
-            src={src}
-            height={height}
-            className="pointer-events-none"
-          />
+          <div className="relative inline-block">
+            <TransparentLoopVideo
+              src={src}
+              height={height}
+              className="pointer-events-none"
+            />
+          </div>
         </div>
       </div>
     </>
