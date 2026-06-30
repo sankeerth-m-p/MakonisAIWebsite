@@ -39,9 +39,11 @@ export default function AircraftScrollReveal({
   const outerRef = useRef<HTMLDivElement>(null);
   const sectionRef = useRef<HTMLElement | null>(null);
   const progressRef = useRef(0);
+  const sectionActiveRef = useRef(false);
 
   const [editorKeyframes, setEditorKeyframes] = useState<PathKeyframe[]>(path);
   const [scrollProgress, setScrollProgress] = useState(0);
+  const [videoPlaying, setVideoPlaying] = useState(false);
   const [guideSize, setGuideSize] = useState({ w: 0, h: 0 });
   const [copied, setCopied] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
@@ -81,20 +83,22 @@ export default function AircraftScrollReveal({
     let lastTravelFloor = 0;
     let raf = 0;
     let lastStateValue = -1;
+    let lastFrameTs = 0;
     let running = true;
-    let sectionActive = editorMode;
 
     const SMOOTHING = 0.055;
     const EASE_OUT_BOOST = 2.2;
+    const SNAP_GAP = 0.22;
 
     const readTarget = () => {
       const raw = getSectionEnterExitProgress(section);
       if (isSectionFullyOffScreen()) {
+        const snap = raw >= 0.5 ? 1 : 0;
         travel = 0;
-        anchorRaw = 0;
+        anchorRaw = snap;
         lastTravelFloor = 0;
-        current = 0;
-        return 0;
+        current = snap;
+        return snap;
       }
 
       if (raw !== anchorRaw) {
@@ -109,6 +113,7 @@ export default function AircraftScrollReveal({
       if (wrappedLap) return progressTarget;
       const gap = progressTarget - progress;
       const dist = Math.abs(gap);
+      if (dist > SNAP_GAP) return progressTarget;
       const alpha = Math.min(1, SMOOTHING * (1 + EASE_OUT_BOOST * (1 - (1 - dist) ** 2)));
       let next = progress + gap * alpha;
       if (Math.abs(progressTarget - next) < 0.0002) next = progressTarget;
@@ -120,10 +125,24 @@ export default function AircraftScrollReveal({
       raf = requestAnimationFrame(tick);
     };
 
+    const setSectionActive = (active: boolean) => {
+      sectionActiveRef.current = active;
+      const animationsEnabled = editorMode || active;
+      setVideoPlaying(animationsEnabled);
+      if (animationsEnabled) scheduleTick();
+    };
+
     const tick = () => {
       raf = 0;
       if (!running) return;
-      if (!editorMode && !sectionActive) return;
+      if (!editorMode && !sectionActiveRef.current) return;
+
+      const now = performance.now();
+      if (now - lastFrameTs < 14) {
+        scheduleTick();
+        return;
+      }
+      lastFrameTs = now;
 
       const prevTravelFloor = lastTravelFloor;
       target = readTarget();
@@ -140,25 +159,36 @@ export default function AircraftScrollReveal({
         setScrollProgress(current);
       }
 
-      scheduleTick();
+      const keepAnimating =
+        editorMode ||
+        Math.abs(target - current) > 0.00015 ||
+        sectionActiveRef.current;
+
+      if (keepAnimating) scheduleTick();
     };
 
     const observer = new IntersectionObserver(
-      ([entry]) => {
-        sectionActive = entry.isIntersecting;
-        if (editorMode || sectionActive) scheduleTick();
-      },
+      ([entry]) => setSectionActive(entry.isIntersecting),
       { rootMargin: "160px 0px", threshold: 0 },
     );
     observer.observe(section);
 
+    const onScroll = () => {
+      if (editorMode || sectionActiveRef.current) scheduleTick();
+    };
+    const onResize = () => scheduleTick();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onResize);
+
     target = readTarget();
     current = target;
-    if (editorMode) scheduleTick();
+    scheduleTick();
 
     return () => {
       running = false;
       observer.disconnect();
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onResize);
       cancelAnimationFrame(raf);
     };
   }, [applyPosition, editorMode]);
@@ -328,6 +358,7 @@ export default function AircraftScrollReveal({
           src={src}
           height={height}
           className="pointer-events-none block"
+          playing={videoPlaying || editorMode}
         />
       </div>
     </>

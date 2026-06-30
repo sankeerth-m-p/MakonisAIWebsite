@@ -1,8 +1,7 @@
 "use client";
 
 /**
- * Automatic, wind-blown tumbleweeds along the bottom of a section.
- * Both follow the same gust pattern, with different travel speeds.
+ * Static tumbleweeds along the bottom of a section.
  */
 type Props = {
   className?: string;
@@ -39,26 +38,21 @@ export default function TumbleweedField({ className = "" }: Props) {
           overflow: hidden;
           z-index: 20;
           --tw-darken: brightness(0.48) saturate(1.2) contrast(1.12);
-          --tw-ground: 4%;
           --tw-size: clamp(92px, 11.5vw, 176px);
         }
 
         .tw-roller {
           position: absolute;
-          bottom: var(--tw-ground);
-          left: 0;
+          right: 10%;
+          bottom: 5%;
           width: var(--tw-size);
           height: var(--tw-size);
-          animation: tw-travel 17s linear infinite;
-          will-change: left;
         }
 
         .tw-lift,
         .tw-drifter-lift {
           width: 100%;
           height: 100%;
-          animation: tw-fly 17s linear infinite;
-          will-change: transform;
         }
 
         .tw-roll,
@@ -68,32 +62,15 @@ export default function TumbleweedField({ className = "" }: Props) {
           height: 100%;
           opacity: 0.96;
           filter: var(--tw-darken);
-          transform-origin: 50% 50%;
-          will-change: transform;
-        }
-
-        .tw-roll {
-          animation: tw-spin 17s linear infinite;
         }
 
         .tw-drifter {
           position: absolute;
-          bottom: var(--tw-ground);
-          left: 0;
+          left: 50%;
+          bottom: 5%;
           width: calc(var(--tw-size) * 1.04);
           height: calc(var(--tw-size) * 1.04);
-          animation:
-            tw-travel-center-first 9.5s linear 1 forwards,
-            tw-travel 19s linear 9.5s infinite;
-          will-change: left;
-        }
-
-        .tw-drifter-lift {
-          animation-duration: 19s;
-        }
-
-        .tw-sway {
-          animation: tw-spin-slow 19s linear infinite;
+          transform: translateX(-50%);
         }
 
         .tw-wind {
@@ -150,121 +127,6 @@ export default function TumbleweedField({ className = "" }: Props) {
           }
         }
 
-        @keyframes tw-travel {
-          0% {
-            left: 104%;
-          }
-          8% {
-            left: 96%;
-          }
-          26% {
-            left: 64%;
-          }
-          50% {
-            left: 42%;
-          }
-          70% {
-            left: 14%;
-          }
-          88% {
-            left: -8%;
-          }
-          100% {
-            left: -22%;
-          }
-        }
-
-        @keyframes tw-travel-center-first {
-          0% {
-            left: 50%;
-          }
-          8% {
-            left: 46%;
-          }
-          26% {
-            left: 30%;
-          }
-          50% {
-            left: 14%;
-          }
-          70% {
-            left: -2%;
-          }
-          88% {
-            left: -15%;
-          }
-          100% {
-            left: -24%;
-          }
-        }
-
-        @keyframes tw-fly {
-          0%,
-          8% {
-            transform: translateY(0);
-          }
-          13% {
-            transform: translateY(-46px);
-          }
-          18% {
-            transform: translateY(-12px);
-          }
-          26% {
-            transform: translateY(0);
-          }
-          52% {
-            transform: translateY(0);
-          }
-          58% {
-            transform: translateY(-40px);
-          }
-          64% {
-            transform: translateY(-10px);
-          }
-          70% {
-            transform: translateY(0);
-          }
-          100% {
-            transform: translateY(0);
-          }
-        }
-
-        @keyframes tw-spin {
-          0% {
-            transform: rotate(0);
-          }
-          26% {
-            transform: rotate(-340deg);
-          }
-          50% {
-            transform: rotate(-700deg);
-          }
-          70% {
-            transform: rotate(-1040deg);
-          }
-          100% {
-            transform: rotate(-1480deg);
-          }
-        }
-
-        @keyframes tw-spin-slow {
-          0% {
-            transform: rotate(0);
-          }
-          26% {
-            transform: rotate(-260deg);
-          }
-          50% {
-            transform: rotate(-520deg);
-          }
-          70% {
-            transform: rotate(-780deg);
-          }
-          100% {
-            transform: rotate(-1080deg);
-          }
-        }
-
         @keyframes tw-whoosh {
           0%,
           7% {
@@ -286,23 +148,6 @@ export default function TumbleweedField({ className = "" }: Props) {
         }
 
         @media (prefers-reduced-motion: reduce) {
-          .tw-roller,
-          .tw-lift,
-          .tw-roll,
-          .tw-drifter,
-          .tw-drifter-lift,
-          .tw-sway {
-            animation: none;
-          }
-
-          .tw-roller {
-            left: 74%;
-          }
-
-          .tw-drifter {
-            left: 50%;
-          }
-
           .tw-wind {
             display: none;
           }
