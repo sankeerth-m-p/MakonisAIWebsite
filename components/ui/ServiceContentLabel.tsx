@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useRef } from "react";
+
 import AnimatedButton from "@/components/ui/AnimatedButton";
 import ParallaxFloatGroup from "@/components/ui/ParallaxFloatGroup";
 import {
@@ -20,21 +22,31 @@ export default function ServiceContentLabel({
   buttonText = "Learn More",
   details,
 }: ServiceContentLabelProps) {
-  const { openServiceDetails } = useServiceDetailsOverlay();
+  const anchorRef = useRef<HTMLDivElement>(null);
+  const { openServiceDetails, registerServiceDetailsAnchor } =
+    useServiceDetailsOverlay();
+
+  useEffect(() => {
+    const el = anchorRef.current;
+    if (!el) return;
+    return registerServiceDetailsAnchor(el, details);
+  }, [details, registerServiceDetailsAnchor]);
 
   return (
-    <ParallaxFloatGroup className="flex w-lg flex-col items-start justify-start">
-      <h3>{title}</h3>
+    <div ref={anchorRef}>
+      <ParallaxFloatGroup className="flex w-lg flex-col items-start justify-start">
+        <h3>{title}</h3>
 
-      <div className="mt-5 h-px w-full bg-white" />
+        <div className="mt-5 h-px w-full bg-white" />
 
-      <p className="mt-8 max-w-md">{description}</p>
+        <p className="mt-8 max-w-md">{description}</p>
 
-      <div className="mt-8">
-        <AnimatedButton onClick={() => openServiceDetails(details)}>
-          {buttonText}
-        </AnimatedButton>
-      </div>
-    </ParallaxFloatGroup>
+        <div className="mt-8">
+          <AnimatedButton onClick={() => openServiceDetails(details)}>
+            {buttonText}
+          </AnimatedButton>
+        </div>
+      </ParallaxFloatGroup>
+    </div>
   );
 }

@@ -115,7 +115,7 @@ export function spawnSandBurst(
       size: 2.8 + Math.random() * 5.2,
       life: 1,
       // Linger a touch longer so the trail stays visible behind the jeep.
-      decay: 0.008 + Math.random() * 0.016,
+      decay: 0.01 + Math.random() * 0.018,
       color: SAND_COLORS[(Math.random() * SAND_COLORS.length) | 0],
       jitter: 0.16 + Math.random() * 0.32,
       spawnX: px,
@@ -129,8 +129,8 @@ export function spawnSandBurst(
 }
 
 /** Fade particles that have drifted right behind the jeep (not by screen X). */
-const TRAIL_FADE_PX = 160;
-const TRAIL_FADE_STRENGTH = 2.4;
+const TRAIL_FADE_PX = 105;
+const TRAIL_FADE_STRENGTH = 3.1;
 
 export function stepSandParticles(
   particles: SandParticle[],
@@ -166,7 +166,7 @@ export function drawSandParticles(
     const driftRight = Math.max(0, p.x - p.spawnX);
     const trailT = Math.min(1, driftRight / TRAIL_FADE_PX);
     let alpha = Math.max(0, p.life) * 0.92;
-    alpha *= 1 - trailT * 0.35;
+    alpha *= 1 - trailT * 0.48;
     ctx.globalAlpha = alpha;
     ctx.fillStyle = p.color;
 

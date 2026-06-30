@@ -9,6 +9,14 @@ import {
   samplePathAtProgress,
   type PathKeyframe,
 } from "@/lib/scrollPath";
+import {
+  drawSandParticles,
+  getJeepDirtAnchor,
+  JEEP_TRAVEL_DIR,
+  spawnSandBurst,
+  stepSandParticles,
+  type SandParticle,
+} from "@/lib/jeepSandTrail";
 
 import TransparentLoopVideo from "./TransparentLoopVideo";
 
@@ -26,6 +34,7 @@ type Props = {
   path?: PathKeyframe[];
   showPath?: boolean;
   editorMode?: boolean;
+  enableDirt?: boolean;
 };
 
 const MAX_TILT = 3;
@@ -38,9 +47,12 @@ export default function JeepScrollReveal({
   path = JEEP_PATH,
   showPath = false,
   editorMode = false,
+  enableDirt = true,
 }: Props) {
   const outerRef = useRef<HTMLDivElement>(null);
   const tiltRef = useRef<HTMLDivElement>(null);
+  const dirtAnchorRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const sectionRef = useRef<HTMLElement | null>(null);
   const sectionActiveRef = useRef(editorMode);
   const progressRef = useRef(0);
@@ -76,6 +88,84 @@ export default function JeepScrollReveal({
       return rect.bottom <= 0 || rect.top >= window.innerHeight;
     };
 
+    const dirtEnabled =
+      enableDirt &&
+      !editorMode;
+
+    const particles: SandParticle[] = [];
+    let canvasW = 0;
+    let canvasH = 0;
+    let canvasDpr = 1;
+    let lastHoverSpawn = 0;
+
+    const resizeCanvas = () => {
+      const canvas = canvasRef.current;
+      if (!dirtEnabled || !canvas) return false;
+      const ctx = canvas.getContext("2d", { alpha: true });
+      if (!ctx) return false;
+      canvasDpr = Math.min(window.devicePixelRatio || 1, 2);
+      canvasW = section.clientWidth;
+      canvasH = section.clientHeight;
+      canvas.width = Math.max(1, Math.floor(canvasW * canvasDpr));
+      canvas.height = Math.max(1, Math.floor(canvasH * canvasDpr));
+      canvas.style.width = `${canvasW}px`;
+      canvas.style.height = `${canvasH}px`;
+      ctx.setTransform(canvasDpr, 0, 0, canvasDpr, 0, 0);
+      return true;
+    };
+
+    const spawnAtAnchor = (speed: number) => {
+      if (!dirtEnabled || speed <= 0) return;
+      const anchorEl = dirtAnchorRef.current;
+      if (!anchorEl) return;
+      const anchor = getJeepDirtAnchor(anchorEl, section);
+      spawnSandBurst(
+        particles,
+        anchor.x,
+        anchor.y,
+        JEEP_TRAVEL_DIR.dx,
+        JEEP_TRAVEL_DIR.dy,
+        speed,
+        undefined,
+        2,
+      );
+    };
+
+    const paintParticles = () => {
+      if (!dirtEnabled) return;
+      if (canvasW <= 0 || canvasH <= 0) resizeCanvas();
+      const canvas = canvasRef.current;
+      if (!canvas || canvasW <= 0 || canvasH <= 0) return;
+      const ctx = canvas.getContext("2d", { alpha: true });
+      if (!ctx) return;
+      ctx.setTransform(canvasDpr, 0, 0, canvasDpr, 0, 0);
+      ctx.clearRect(0, 0, canvasW, canvasH);
+      stepSandParticles(particles, canvasH, canvasW);
+      drawSandParticles(ctx, particles, canvasW);
+    };
+
+    const onJeepPointerMove = () => {
+      if (!dirtEnabled || !sectionActiveRef.current) return;
+      const now = performance.now();
+      if (now - lastHoverSpawn < 48) return;
+      lastHoverSpawn = now;
+      spawnAtAnchor(5);
+    };
+
+    const onJeepPointerLeave = () => {
+      lastHoverSpawn = 0;
+    };
+
+    if (dirtEnabled) {
+      resizeCanvas();
+      outer.addEventListener("mouseenter", onJeepPointerMove);
+      outer.addEventListener("mousemove", onJeepPointerMove);
+      outer.addEventListener("mouseleave", onJeepPointerLeave);
+      outer.addEventListener("touchstart", onJeepPointerMove, { passive: true });
+      outer.addEventListener("touchmove", onJeepPointerMove, { passive: true });
+      outer.addEventListener("touchend", onJeepPointerLeave, { passive: true });
+    }
+
     let target = 0;
     let current = 0;
     let travel = 0;
@@ -87,10 +177,13 @@ export default function JeepScrollReveal({
     let lastStateValue = -1;
     let running = true;
     let sectionActive = editorMode;
+    let dirtTravel = 0;
 
     const SMOOTHING = 0.16;
     const EASE_OUT_BOOST = 1.8;
     const TILT_SMOOTHING = 0.14;
+    // Emit one dirt burst per this much accumulated progress travel.
+    const DIRT_SPAWN_STEP = 0.00065;
 
     const readTarget = () => {
       const raw = getSectionEnterExitProgress(section);
@@ -100,6 +193,8 @@ export default function JeepScrollReveal({
         lastTravelFloor = 0;
         current = 0;
         lastCurrent = 0;
+        dirtTravel = 0;
+        particles.length = 0;
         return 0;
       }
 
@@ -156,13 +251,34 @@ export default function JeepScrollReveal({
           tiltEl.style.transform = `rotate(${tilt}deg) perspective(900px) rotateX(${-tilt * 0.25}deg)`;
         }
 
+        // Spawn dirt based on accumulated travel distance, not raw per-frame
+        // velocity. Smoothed/slow scrolling makes the frame velocity dip below a
+        // fixed threshold and the trail flickers in and out ("not coming
+        // sometimes"). Accumulating distance and emitting per fixed step gives a
+        // continuous trail at any scroll speed.
+        if (dirtEnabled && Math.abs(velocity) > 0.00002) {
+          dirtTravel += Math.abs(velocity);
+          while (dirtTravel >= DIRT_SPAWN_STEP) {
+            dirtTravel -= DIRT_SPAWN_STEP;
+            const scrollSpeed = Math.max(
+              2.4,
+              Math.abs(velocity) * section.clientWidth * 4.5,
+            );
+            spawnAtAnchor(scrollSpeed);
+          }
+        }
+
         if (Math.abs(current - lastStateValue) > 0.004) {
           lastStateValue = current;
           setScrollProgress(current);
         }
       }
 
-      if (animateJeep) {
+      if (dirtEnabled && sectionActive) {
+        paintParticles();
+      }
+
+      if (animateJeep || (dirtEnabled && sectionActive)) {
         scheduleTick();
       }
     };
@@ -171,11 +287,21 @@ export default function JeepScrollReveal({
       ([entry]) => {
         sectionActive = entry.isIntersecting;
         sectionActiveRef.current = sectionActive;
+        if (!entry.isIntersecting) {
+          particles.length = 0;
+          lastHoverSpawn = 0;
+          dirtTravel = 0;
+        } else if (dirtEnabled) {
+          resizeCanvas();
+        }
         if (editorMode || sectionActive) scheduleTick();
       },
       { rootMargin: "160px 0px", threshold: 0 },
     );
     observer.observe(section);
+
+    const canvasRo = dirtEnabled ? new ResizeObserver(resizeCanvas) : null;
+    canvasRo?.observe(section);
 
     target = readTarget();
     current = target;
@@ -187,14 +313,30 @@ export default function JeepScrollReveal({
       sectionActive = true;
       sectionActiveRef.current = true;
     }
-    scheduleTick();
+    if (dirtEnabled) {
+      requestAnimationFrame(() => {
+        resizeCanvas();
+        scheduleTick();
+      });
+    } else {
+      scheduleTick();
+    }
 
     return () => {
       running = false;
       observer.disconnect();
+      canvasRo?.disconnect();
+      if (dirtEnabled) {
+        outer.removeEventListener("mouseenter", onJeepPointerMove);
+        outer.removeEventListener("mousemove", onJeepPointerMove);
+        outer.removeEventListener("mouseleave", onJeepPointerLeave);
+        outer.removeEventListener("touchstart", onJeepPointerMove);
+        outer.removeEventListener("touchmove", onJeepPointerMove);
+        outer.removeEventListener("touchend", onJeepPointerLeave);
+      }
       cancelAnimationFrame(raf);
     };
-  }, [applyPosition, editorMode]);
+  }, [applyPosition, editorMode, enableDirt]);
 
   useEffect(() => {
     applyPosition(progressRef.current);
@@ -280,7 +422,15 @@ export default function JeepScrollReveal({
   const sortedPath = [...activePath].sort((a, b) => a.t - b.t);
 
   return (
-    <>
+    <div className="pointer-events-none absolute inset-0 z-[25]">
+      {enableDirt && !editorMode && (
+        <canvas
+          ref={canvasRef}
+          className="pointer-events-none absolute inset-0 block h-full w-full"
+          aria-hidden
+        />
+      )}
+
       {(showPath || editorMode) && guideSize.w > 0 && (
         <svg
           className="pointer-events-none absolute inset-0 z-20"
@@ -351,7 +501,7 @@ export default function JeepScrollReveal({
 
       <div
         ref={outerRef}
-        className={`pointer-events-auto absolute left-0 top-0 z-20 ${className}`}
+        className={`pointer-events-auto absolute left-0 top-0 z-10 ${className}`}
         style={{ transform: "translate3d(-50%, -50%, 0)", willChange: "transform" }}
       >
         <div
@@ -364,9 +514,15 @@ export default function JeepScrollReveal({
               height={height}
               className="pointer-events-none"
             />
+            <div
+              ref={dirtAnchorRef}
+              className="pointer-events-none absolute"
+              style={{ right: "8%", top: "78%", width: 0, height: 0 }}
+              aria-hidden
+            />
           </div>
         </div>
       </div>
-    </>
+    </div>
   );
 }

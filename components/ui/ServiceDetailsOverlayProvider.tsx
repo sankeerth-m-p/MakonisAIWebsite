@@ -18,9 +18,19 @@ export interface ServiceDetailContent {
   points: string[];
 }
 
+type ServiceDetailsAnchor = {
+  el: HTMLElement;
+  details: ServiceDetailContent;
+};
+
 type ServiceDetailsOverlayContextValue = {
+  isOpen: boolean;
   openServiceDetails: (content: ServiceDetailContent) => void;
   closeServiceDetails: () => void;
+  registerServiceDetailsAnchor: (
+    el: HTMLElement,
+    details: ServiceDetailContent,
+  ) => () => void;
 };
 
 const ServiceDetailsOverlayContext =
@@ -30,6 +40,30 @@ const frostBackdropClass =
   "bg-[rgba(244,247,251,0.12)] [backdrop-filter:blur(16px)_saturate(118%)_brightness(1.02)] [-webkit-backdrop-filter:blur(16px)_saturate(118%)_brightness(1.02)]";
 const PANEL_TRANSITION_MS = 500;
 
+function pickActiveAnchor(
+  anchors: ServiceDetailsAnchor[],
+): ServiceDetailContent | null {
+  let best: ServiceDetailContent | null = null;
+  let bestRatio = 0;
+
+  for (const { el, details } of anchors) {
+    const rect = el.getBoundingClientRect();
+    if (rect.height <= 0) continue;
+
+    const visibleTop = Math.max(rect.top, 0);
+    const visibleBottom = Math.min(rect.bottom, window.innerHeight);
+    const visibleHeight = Math.max(0, visibleBottom - visibleTop);
+    const ratio = visibleHeight / rect.height;
+
+    if (ratio > bestRatio) {
+      bestRatio = ratio;
+      best = details;
+    }
+  }
+
+  return bestRatio >= 0.35 ? best : null;
+}
+
 export function ServiceDetailsOverlayProvider({
   children,
 }: {
@@ -37,8 +71,14 @@ export function ServiceDetailsOverlayProvider({
 }) {
   const panelRef = useRef<HTMLElement | null>(null);
   const hasOpenedRef = useRef(false);
+  const anchorsRef = useRef<ServiceDetailsAnchor[]>([]);
+  const contentRef = useRef<ServiceDetailContent | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [content, setContent] = useState<ServiceDetailContent | null>(null);
+
+  useEffect(() => {
+    contentRef.current = content;
+  }, [content]);
 
   const closeServiceDetails = useCallback(() => {
     setIsOpen(false);
@@ -48,6 +88,18 @@ export function ServiceDetailsOverlayProvider({
     setContent(nextContent);
     setIsOpen(true);
   }, []);
+
+  const registerServiceDetailsAnchor = useCallback(
+    (el: HTMLElement, details: ServiceDetailContent) => {
+      const entry: ServiceDetailsAnchor = { el, details };
+      anchorsRef.current = [...anchorsRef.current, entry];
+
+      return () => {
+        anchorsRef.current = anchorsRef.current.filter((item) => item !== entry);
+      };
+    },
+    [],
+  );
 
   useEffect(() => {
     if (isOpen) hasOpenedRef.current = true;
@@ -107,9 +159,48 @@ export function ServiceDetailsOverlayProvider({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [isOpen, closeServiceDetails]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+
+    let frame = 0;
+
+    const closeIfSectionChanged = () => {
+      const active = pickActiveAnchor(anchorsRef.current);
+      if (
+        active &&
+        contentRef.current &&
+        active.heading !== contentRef.current.heading
+      ) {
+        closeServiceDetails();
+      }
+    };
+
+    const onScroll = () => {
+      if (frame) return;
+      frame = window.requestAnimationFrame(() => {
+        frame = 0;
+        closeIfSectionChanged();
+      });
+    };
+
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+
+    return () => {
+      if (frame) window.cancelAnimationFrame(frame);
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+    };
+  }, [isOpen, closeServiceDetails]);
+
   const value = useMemo(
-    () => ({ openServiceDetails, closeServiceDetails }),
-    [openServiceDetails, closeServiceDetails],
+    () => ({
+      isOpen,
+      openServiceDetails,
+      closeServiceDetails,
+      registerServiceDetailsAnchor,
+    }),
+    [isOpen, openServiceDetails, closeServiceDetails, registerServiceDetailsAnchor],
   );
 
   return (
