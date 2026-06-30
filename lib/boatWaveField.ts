@@ -67,6 +67,35 @@ export function generateBoatWaveField(
   svg.style.overflow = "visible";
   svg.innerHTML = "";
 
+  const defs = make("defs", {});
+  const filter = make("filter", {
+    id: "boat-wave-neon",
+    x: "-50%",
+    y: "-50%",
+    width: "200%",
+    height: "200%",
+    "color-interpolation-filters": "sRGB",
+  });
+  filter.appendChild(
+    make("feGaussianBlur", { in: "SourceGraphic", stdDeviation: "1.4", result: "blur" }),
+  );
+  filter.appendChild(
+    make("feFlood", { "flood-color": "#4de8ff", "flood-opacity": "0.92", result: "color" }),
+  );
+  filter.appendChild(
+    make("feComposite", { in: "color", in2: "blur", operator: "in", result: "glow" }),
+  );
+  filter.appendChild(
+    make("feGaussianBlur", { in: "glow", stdDeviation: "3.2", result: "glowWide" }),
+  );
+  const merge = make("feMerge", {});
+  merge.appendChild(make("feMergeNode", { in: "glowWide" }));
+  merge.appendChild(make("feMergeNode", { in: "glow" }));
+  merge.appendChild(make("feMergeNode", { in: "SourceGraphic" }));
+  filter.appendChild(merge);
+  defs.appendChild(filter);
+  svg.appendChild(defs);
+
   let delay = 0;
 
   const buildScaledTrace = (startY: number) => {
@@ -98,13 +127,14 @@ export function generateBoatWaveField(
   };
 
   const addTrace = (pts: number[][], parent: SVGGElement) => {
-    const op = rand(0.22, 0.5);
+    const op = rand(0.38, 0.72);
     const path = make("path", {
       d: roundedPath(pts, radius),
       fill: "none",
       "stroke-width": String(stroke),
       "stroke-linecap": "round",
       "stroke-linejoin": "round",
+      filter: "url(#boat-wave-neon)",
     });
     path.style.stroke = `rgba(var(--trace), ${op})`;
     path.style.animationDelay = `${(delay += 24)}ms`;

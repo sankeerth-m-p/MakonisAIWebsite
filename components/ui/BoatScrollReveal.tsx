@@ -15,8 +15,7 @@ import TransparentLoopVideo from "./TransparentLoopVideo";
 
 const CONE_LEN = 920;
 const CONE_ANGLE = 20;
-const CONE_EDGE = 14;
-const WAKE_STILL_MS = 130;
+const WAKE_STILL_MS = 100;
 const WAKE_MOVE_THRESHOLD = 0.00015;
 const WAKE_FADE_IN_RATE = 0.22;
 const WAKE_FADE_OUT_RATE = 0.09;
@@ -31,7 +30,6 @@ const WAKE_MAX_BRIGHTNESS = 1.38;
 const WAKE_WAVE_SCALE_X = 1.55;
 const WAKE_WAVE_SCALE_Y = 1.42;
 const SPOTLIGHT_ANCHOR_FROM_RIGHT = 0.48;
-const WAKE_WATERLINE_OFFSET = 0.12;
 const WAKE_MIN_REACH_BOAT_FACTOR = 0.48;
 const WAKE_MIN_REACH_PX = 72;
 const WAKE_BOTTOM_BLEED_PX =
@@ -102,15 +100,17 @@ function getBoatWakeAnchor(
   revealEl: HTMLElement,
   revealRect?: DOMRect,
 ) {
-  const boatW = boatOuter.offsetWidth;
-  const boatH = boatOuter.offsetHeight;
+  const video = boatOuter.querySelector("video");
+  const target = video ?? boatOuter;
+  const boatRect = target.getBoundingClientRect();
+  const boatW = boatRect.width;
+  const boatH = boatRect.height;
   if (!boatW || !boatH) return null;
 
-  const boatRect = boatOuter.getBoundingClientRect();
   const reveal = revealRect ?? revealEl.getBoundingClientRect();
   return {
-    x: boatRect.right - boatRect.width * SPOTLIGHT_ANCHOR_FROM_RIGHT - reveal.left,
-    y: boatRect.top + boatH / 2 + boatH * WAKE_WATERLINE_OFFSET - reveal.top,
+    x: boatRect.right - boatW * SPOTLIGHT_ANCHOR_FROM_RIGHT - reveal.left,
+    y: boatRect.top + boatH / 2 - reveal.top,
     boatW,
   };
 }
@@ -189,7 +189,6 @@ function applyWakeFrame(
   const angleScale = WAKE_MIN_ANGLE_SCALE + (1 - WAKE_MIN_ANGLE_SCALE) * intensity;
   const aim = 90;
   const half = ((CONE_ANGLE / 2) * angleScale * wakeScale);
-  const edge = CONE_EDGE * angleScale * wakeScale;
   const minReach = Math.max(WAKE_MIN_REACH_PX * wakeScale, boatW * WAKE_MIN_REACH_BOAT_FACTOR);
   const reach = Math.max(
     minReach * state.wakePower,
@@ -210,10 +209,10 @@ function applyWakeFrame(
   if (paintKey !== state.lastPaintKey) {
     state.lastPaintKey = paintKey;
     const wedge = `conic-gradient(from 0deg at ${x}px ${y}px,
-    transparent ${aim - half - edge}deg,
+    transparent ${aim - half}deg,
     black ${aim - half}deg,
     black ${aim + half}deg,
-    transparent ${aim + half + edge}deg,
+    transparent ${aim + half}deg,
     transparent 360deg)`;
     const reachMask = `radial-gradient(${reach}px at ${x}px ${y}px,
     black 0%, black ${(fadeStart * 100).toFixed(1)}%, transparent 100%)`;
@@ -337,14 +336,14 @@ function WakeLayer({
           bottom: -WAKE_BOTTOM_BLEED_PX,
           zIndex,
           willChange: "transform",
-          "--trace": "255, 255, 255",
+          "--trace": "72, 220, 255",
         } as CSSProperties
       }
       aria-hidden
     >
       <svg
         ref={wavesSvgRef}
-        className="absolute inset-0 block h-full w-full overflow-visible"
+        className="boat-wake-waves absolute inset-0 block h-full w-full overflow-visible"
         shapeRendering="geometricPrecision"
         style={{ willChange: "transform", overflow: "visible" }}
         overflow="visible"
