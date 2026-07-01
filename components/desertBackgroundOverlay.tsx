@@ -191,54 +191,23 @@ export default function DesertBackground() {
       ctx.restore();
     }
 
-    function drawTumbleweed(
-      ctx: CanvasRenderingContext2D,
-      x: number, y: number, r: number,
-      alpha: number, t: number, speed: number
-    ) {
-      ctx.save();
-      ctx.translate(x, y);
-      ctx.rotate(t * speed);
-      ctx.globalAlpha = alpha;
-      ctx.strokeStyle = "#7a4a1a";
-      ctx.lineWidth = 0.9;
-      for (let i = 0; i < 12; i++) {
-        const a = (i / 12) * Math.PI * 2;
-        const ex = Math.cos(a) * r;
-        const ey = Math.sin(a) * r;
-        ctx.beginPath();
-        ctx.moveTo(0, 0);
-        ctx.bezierCurveTo(
-          ex * 0.3 + ey * 0.2, ey * 0.3 - ex * 0.2,
-          ex * 0.7 - ey * 0.15, ey * 0.7 + ex * 0.15,
-          ex, ey
-        );
-        ctx.stroke();
-      }
-      ctx.beginPath(); ctx.arc(0, 0, r * 0.95, 0, Math.PI * 2); ctx.stroke();
-      ctx.beginPath(); ctx.arc(0, 0, r * 0.5, 0, Math.PI * 2); ctx.stroke();
-      ctx.restore();
-    }
-
-    function drawPlants(t: number) {
+    function drawPlants() {
       const ctx = getCtx(plantsRef);
       if (!ctx) return;
       ctx.clearRect(0, 0, W, H);
       drawSketchCactus(ctx, W * 0.54, H * 0.88, 0.85, 0.5);
       drawSketchCactus(ctx, W * 0.46, H * 0.92, 0.60, 0.38);
-      drawTumbleweed(ctx, W * 0.87, H * 0.70, 26, 0.42, t, 0.0008);
-      drawTumbleweed(ctx, W * 0.36, H * 0.78, 16, 0.28, t, 0.0012);
     }
 
     // ── static layers (no animation) ────────────────────────
     drawSky();
     drawHills();
     drawDust();
+    drawPlants();
 
     // ── animation loop (only animated layers) ───────────────
     function loop(t: number) {
       drawDunes(t);
-      drawPlants(t);
       rafRef.current = requestAnimationFrame(loop);
     }
     rafRef.current = requestAnimationFrame(loop);
@@ -273,7 +242,7 @@ export default function DesertBackground() {
       <canvas ref={dunesRef} style={{ ...canvasStyle, zIndex: 2 }} />
       {/* z-index 3 — dust haze at bottom */}
       <canvas ref={dustRef}  style={{ ...canvasStyle, zIndex: 3 }} />
-      {/* z-index 4 — sketch plants & tumbleweeds */}
+      {/* z-index 4 — sketch plants */}
       <canvas ref={plantsRef} style={{ ...canvasStyle, zIndex: 4 }} />
       {/* z-index 5+ — slot your page content here */}
     </div>

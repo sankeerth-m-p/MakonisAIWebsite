@@ -1,7 +1,6 @@
 import NightSkyStarsOverlay from "@/components/NightSkyStarsOverlay";
 import JeepScrollReveal from "@/components/ui/JeepScrollReveal";
 import ServiceContentLabel from "@/components/ui/ServiceContentLabel";
-import TumbleweedField from "@/components/ui/TumbleweedField";
 import { SECTION_GRADIENT_CLASS as gradient } from "@/data/gradients";
 
 export default function ServiceDataEngineeringSection() {
@@ -17,7 +16,6 @@ export default function ServiceDataEngineeringSection() {
         className="-translate-y-4"
       />
       <section className="relative z-10 flex h-screen flex-col overflow-visible pt-24">
-        <TumbleweedField />
         <JeepScrollReveal />
         <div className="relative z-30 makonis-container flex w-full flex-col pt-[30vh] pb-10 md:pt-[28vh] lg:pt-[26vh]">
           <ServiceContentLabel

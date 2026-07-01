@@ -4,7 +4,9 @@ export const NAVBAR_FADE_HEIGHT_PX = 80;
 /** Distance below the navbar where content eases back to full opacity. */
 export const NAVBAR_FADE_ZONE_PX = 40;
 
-const CONTENT_SELECTOR = "main section .makonis-container";
+/** Parallax groups inside containers move visually; fade them too. */
+const CONTENT_SELECTOR =
+  "main .makonis-container, main .makonis-container .will-change-transform";
 
 function buildFadeMask(rect: DOMRect): string | null {
   const fadeEndViewport = NAVBAR_FADE_HEIGHT_PX + NAVBAR_FADE_ZONE_PX;
@@ -33,11 +35,19 @@ export function applyNavbarContentFade(el: HTMLElement) {
   if (!mask) {
     el.style.removeProperty("mask-image");
     el.style.removeProperty("-webkit-mask-image");
+    el.style.removeProperty("mask-size");
+    el.style.removeProperty("-webkit-mask-size");
+    el.style.removeProperty("mask-repeat");
+    el.style.removeProperty("-webkit-mask-repeat");
     return;
   }
 
   el.style.maskImage = mask;
   el.style.webkitMaskImage = mask;
+  el.style.maskSize = "100% 100%";
+  el.style.webkitMaskSize = "100% 100%";
+  el.style.maskRepeat = "no-repeat";
+  el.style.webkitMaskRepeat = "no-repeat";
 }
 
 export function queryNavbarFadeTargets(root: ParentNode = document) {

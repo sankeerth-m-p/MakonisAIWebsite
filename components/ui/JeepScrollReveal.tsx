@@ -18,8 +18,6 @@ import {
   type SandParticle,
 } from "@/lib/jeepSandTrail";
 
-import TransparentLoopVideo from "./TransparentLoopVideo";
-
 /** Default drive path — straight line along the bottom, right → center → left. */
 export const JEEP_PATH: PathKeyframe[] = [
   { t: 0.0, x: 1.12, y: 0.9 }, // off-screen right
@@ -39,6 +37,14 @@ type Props = {
 
 const MAX_TILT = 3;
 const TILT_PER_SPEED = 900;
+/** Progress delta per frame below which scroll is considered idle. */
+const SCROLL_IDLE_THRESHOLD = 0.000001;
+/** Pause video this many ms after the last detected scroll movement. */
+const SCROLL_IDLE_MS = 28;
+const MIN_PLAYBACK_RATE = 0.35;
+const MAX_PLAYBACK_RATE = 2.8;
+/** Maps per-frame path progress velocity to video playbackRate. */
+const PLAYBACK_RATE_SCALE = 1500;
 
 export default function JeepScrollReveal({
   src = "/jeep.webm",
@@ -50,6 +56,7 @@ export default function JeepScrollReveal({
   enableDirt = true,
 }: Props) {
   const outerRef = useRef<HTMLDivElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const tiltRef = useRef<HTMLDivElement>(null);
   const dirtAnchorRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -178,6 +185,36 @@ export default function JeepScrollReveal({
     let running = true;
     let sectionActive = editorMode;
     let dirtTravel = 0;
+    let lastScrollInputAt = 0;
+
+    const syncVideoToScroll = (scrollDelta: number) => {
+      const video = videoRef.current;
+      if (!video) return;
+
+      const recentlyScrolled =
+        scrollDelta > SCROLL_IDLE_THRESHOLD ||
+        performance.now() - lastScrollInputAt < SCROLL_IDLE_MS;
+      if (!recentlyScrolled) {
+        if (!video.paused) video.pause();
+        return;
+      }
+
+      const rate = Math.min(
+        MAX_PLAYBACK_RATE,
+        Math.max(MIN_PLAYBACK_RATE, scrollDelta * PLAYBACK_RATE_SCALE),
+      );
+      if (Math.abs(video.playbackRate - rate) > 0.02) {
+        video.playbackRate = rate;
+      }
+      if (video.paused) {
+        void video.play().catch(() => {});
+      }
+    };
+
+    const pauseVideo = () => {
+      const video = videoRef.current;
+      if (video && !video.paused) video.pause();
+    };
 
     const SMOOTHING = 0.16;
     const EASE_OUT_BOOST = 1.8;
@@ -229,7 +266,12 @@ export default function JeepScrollReveal({
 
       if (animateJeep) {
         const prevTravelFloor = lastTravelFloor;
+        const anchorBefore = anchorRaw;
         target = readTarget();
+        const scrollDelta = Math.abs(anchorRaw - anchorBefore);
+        if (scrollDelta > SCROLL_IDLE_THRESHOLD) {
+          lastScrollInputAt = performance.now();
+        }
         lastTravelFloor = Math.floor(travel);
 
         const wrappedLap = lastTravelFloor > prevTravelFloor;
@@ -268,10 +310,14 @@ export default function JeepScrollReveal({
           }
         }
 
+        syncVideoToScroll(scrollDelta);
+
         if (Math.abs(current - lastStateValue) > 0.004) {
           lastStateValue = current;
           setScrollProgress(current);
         }
+      } else {
+        pauseVideo();
       }
 
       if (dirtEnabled && sectionActive) {
@@ -291,6 +337,7 @@ export default function JeepScrollReveal({
           particles.length = 0;
           lastHoverSpawn = 0;
           dirtTravel = 0;
+          pauseVideo();
         } else if (dirtEnabled) {
           resizeCanvas();
         }
@@ -509,10 +556,16 @@ export default function JeepScrollReveal({
           style={{ transformStyle: "preserve-3d", willChange: "transform" }}
         >
           <div className="relative inline-block">
-            <TransparentLoopVideo
+            <video
+              ref={videoRef}
               src={src}
-              height={height}
-              className="pointer-events-none"
+              muted
+              playsInline
+              loop
+              preload="auto"
+              aria-hidden
+              className="pointer-events-none block w-auto object-contain"
+              style={{ height }}
             />
             <div
               ref={dirtAnchorRef}

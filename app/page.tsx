@@ -32,7 +32,7 @@ export default function Home() {
             <ServiceCustomAISection />
             <ServiceGenerativeAISection />
             <ServiceDataEngineeringSection />
-            <ServiceModelOpsSection />
+            {/* <ServiceModelOpsSection /> */}
             <ProcessSection />
           <ImpactSection />
             <WhyAISection />

@@ -140,7 +140,9 @@ function applyWakeFrame(
   if (offScreen) {
     reveal.style.opacity = "0";
     reveal.style.filter = "";
-    if (wavesSvg) wavesSvg.style.transform = "";
+    // Reset to the identity GPU-layer transform (not "") so the wave field's
+    // compositor layer stays alive and doesn't have to be rebuilt on re-show.
+    if (wavesSvg) wavesSvg.style.transform = "translateZ(0)";
     return;
   }
 
@@ -180,7 +182,7 @@ function applyWakeFrame(
     if (reveal.style.opacity !== "0") {
       reveal.style.opacity = "0";
       reveal.style.filter = "";
-      if (wavesSvg) wavesSvg.style.transform = "";
+      if (wavesSvg) wavesSvg.style.transform = "translateZ(0)";
     }
     state.lastPaintKey = undefined;
     return;
@@ -197,33 +199,37 @@ function applyWakeFrame(
 
   const fadeStart =
     WAKE_MIN_FADE_START + (WAKE_MAX_FADE_START - WAKE_MIN_FADE_START) * intensity;
+  // Quantize so the expensive mask-string rebuild only runs on visually
+  // meaningful changes, not every 1px of every frame (main-thread savings).
+  const q = (v: number, step: number) => Math.round(v / step) * step;
   const paintKey = [
-    Math.round(x),
-    Math.round(y),
-    Math.round(reach),
-    fadeStart.toFixed(2),
-    intensity.toFixed(2),
-    state.wakePower.toFixed(2),
+    q(x, 8),
+    q(y, 8),
+    q(reach, 16),
+    fadeStart.toFixed(1),
+    intensity.toFixed(1),
+    state.wakePower.toFixed(1),
   ].join("|");
 
   if (paintKey !== state.lastPaintKey) {
     state.lastPaintKey = paintKey;
-    const wedge = `conic-gradient(from 0deg at ${x}px ${y}px,
+    const qx = q(x, 8);
+    const qy = q(y, 8);
+    const qreach = q(reach, 16);
+    const wedge = `conic-gradient(from 0deg at ${qx}px ${qy}px,
     transparent ${aim - half}deg,
     black ${aim - half}deg,
     black ${aim + half}deg,
     transparent ${aim + half}deg,
     transparent 360deg)`;
-    const reachMask = `radial-gradient(${reach}px at ${x}px ${y}px,
+    const reachMask = `radial-gradient(${qreach}px at ${qx}px ${qy}px,
     black 0%, black ${(fadeStart * 100).toFixed(1)}%, transparent 100%)`;
     const mask = `${wedge}, ${reachMask}`;
 
+    // Only the mask *image* changes per frame; repeat/composite are set once
+    // on the element (see WakeLayer style) so we don't re-write them here.
     reveal.style.maskImage = mask;
     reveal.style.webkitMaskImage = mask;
-    reveal.style.maskRepeat = "no-repeat";
-    reveal.style.webkitMaskRepeat = "no-repeat";
-    reveal.style.maskComposite = "intersect";
-    reveal.style.webkitMaskComposite = "source-in";
   }
 
   const brightness =
@@ -236,7 +242,9 @@ function applyWakeFrame(
   if (wavesSvg) {
     const waveBoostX = 1 + (WAKE_WAVE_SCALE_X - 1) * intensity * wakeScale;
     const waveBoostY = 1 + (WAKE_WAVE_SCALE_Y - 1) * intensity * wakeScale;
-    const nextTransform = `translate(${x}px, ${y}px) scale(${waveBoostX.toFixed(3)}, ${waveBoostY.toFixed(3)}) translate(${-x}px, ${-y}px)`;
+    // Keep the trailing translateZ(0) so the wave field's GPU layer is the same
+    // one used while hidden — avoids a layer rebuild when motion starts/stops.
+    const nextTransform = `translate(${x}px, ${y}px) scale(${waveBoostX.toFixed(3)}, ${waveBoostY.toFixed(3)}) translate(${-x}px, ${-y}px) translateZ(0)`;
     if (wavesSvg.style.transform !== nextTransform) {
       wavesSvg.style.transformOrigin = "0 0";
       wavesSvg.style.transform = nextTransform;
@@ -310,7 +318,12 @@ function WakeLayer({
     if (!reveal || !svg) return;
 
     let resizeTimer: ReturnType<typeof setTimeout>;
-    const generate = () => generateBoatWaveField(svg, { scale: waveFieldScale });
+    const generate = () => {
+      // Hide the layer while the field is (re)built; the next wake frame
+      // re-applies the mask and reveals it. Prevents an un-masked flash.
+      reveal.style.opacity = "0";
+      generateBoatWaveField(svg, { scale: waveFieldScale });
+    };
 
     generate();
     const ro = new ResizeObserver(() => {
@@ -335,7 +348,17 @@ function WakeLayer({
           right: -wakeBleed.right,
           bottom: -WAKE_BOTTOM_BLEED_PX,
           zIndex,
-          willChange: "transform",
+          // Start hidden so the un-masked wave field never flashes on screen
+          // before the first wake frame applies its mask/opacity.
+          opacity: 0,
+          willChange: "transform, opacity",
+          // Static mask config — the wedge/reach gradients change per frame, but
+          // repeat/composite never do, so set them once here instead of
+          // re-writing them on every mask update in the rAF loop.
+          maskRepeat: "no-repeat",
+          WebkitMaskRepeat: "no-repeat",
+          maskComposite: "intersect",
+          WebkitMaskComposite: "source-in",
           "--trace": "72, 220, 255",
         } as CSSProperties
       }
@@ -345,7 +368,16 @@ function WakeLayer({
         ref={wavesSvgRef}
         className="boat-wake-waves absolute inset-0 block h-full w-full overflow-visible"
         shapeRendering="geometricPrecision"
-        style={{ willChange: "transform", overflow: "visible" }}
+        style={{
+          willChange: "transform",
+          overflow: "visible",
+          // Promote the neon-filtered wave field to its own GPU layer so the
+          // expensive SVG blur filter is rasterized once into a cached texture.
+          // The parent's animated mask then composites that texture instead of
+          // re-running the filter on every mask update — same look, far cheaper.
+          transform: "translateZ(0)",
+          backfaceVisibility: "hidden",
+        }}
         overflow="visible"
         aria-hidden
       />
@@ -444,9 +476,9 @@ function BoatFleet({
     if (!group || !section) return;
     sectionRef.current = section;
 
-    const isSectionFullyOffScreen = () => {
-      const rect = section.getBoundingClientRect();
-      return rect.bottom <= 0 || rect.top >= window.innerHeight;
+    const isSectionFullyOffScreen = (rect?: DOMRect) => {
+      const r = rect ?? section.getBoundingClientRect();
+      return r.bottom <= 0 || r.top >= window.innerHeight;
     };
 
     let target = 0;
@@ -517,9 +549,9 @@ function BoatFleet({
       }
     };
 
-    const readTarget = () => {
+    const readTarget = (sectionRect?: DOMRect) => {
       const raw = getSectionEnterExitProgress(section);
-      if (isSectionFullyOffScreen()) {
+      if (isSectionFullyOffScreen(sectionRect)) {
         travel = 0;
         anchorRaw = 0;
         lastTravelFloor = 0;
@@ -609,8 +641,11 @@ function BoatFleet({
       }
       lastFrameTs = now;
 
+      // Read the section rect once per frame and reuse it for both the
+      // progress calc and the off-screen test, so we don't force layout twice.
+      const sectionRect = section.getBoundingClientRect();
       const prevTravelFloor = lastTravelFloor;
-      target = readTarget();
+      target = readTarget(sectionRect);
       lastTravelFloor = Math.floor(travel);
 
       const wrappedLap = lastTravelFloor > prevTravelFloor;
@@ -640,6 +675,24 @@ function BoatFleet({
       trim = sampleTrim(mainMotion.smoothed, prevMainVelocity, trim);
       // miniTrim = sampleTrim(miniMotion.smoothed, prevMiniVelocity, miniTrim);
 
+      const offScreen = isSectionFullyOffScreen(sectionRect);
+      const mainReveal = mainRevealRef.current;
+      // const miniReveal = miniRevealRef.current;
+      const mainHull = mainHullRef.current;
+      // const miniHull = miniOffsetRef.current;
+
+      // --- READS FIRST ---------------------------------------------------
+      // Measure the wake anchor before we write any transforms this frame.
+      // Batching all getBoundingClientRect() reads ahead of the style writes
+      // keeps the browser from forcing a second synchronous layout mid-frame
+      // (the write→read→write pattern is what made the wake stutter).
+      const mainRevealRect = offScreen || !mainReveal ? null : mainReveal.getBoundingClientRect();
+      const mainAnchor =
+        offScreen || !mainReveal || !mainHull || !mainRevealRect
+          ? null
+          : getBoatWakeAnchor(mainHull, mainReveal, mainRevealRect);
+
+      // --- WRITES SECOND -------------------------------------------------
       if (mainSternRef.current && mainBowRef.current) {
         applyTrim(mainSternRef.current, mainBowRef.current, trim);
       }
@@ -650,21 +703,11 @@ function BoatFleet({
       progressRef.current = current;
       applyGroupPosition(current /*, miniCurrent */);
 
-      const offScreen = isSectionFullyOffScreen();
-      const mainReveal = mainRevealRef.current;
-      // const miniReveal = miniRevealRef.current;
-      const mainHull = mainHullRef.current;
-      // const miniHull = miniOffsetRef.current;
-      const mainRevealRect = offScreen || !mainReveal ? null : mainReveal.getBoundingClientRect();
-
       if (mainReveal && mainHull) {
-        const anchor = offScreen || !mainRevealRect
-          ? null
-          : getBoatWakeAnchor(mainHull, mainReveal, mainRevealRect);
         applyWakeFrame(
           mainReveal,
           mainWavesRef.current,
-          anchor,
+          mainAnchor,
           Math.abs(mainMotion.smoothed),
           mainWake,
           offScreen,

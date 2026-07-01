@@ -10,7 +10,12 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { publishServicePanelSeam } from "@/lib/servicePanelMask";
+import {
+  publishServicePanelOpen,
+  registerServicePanelElement,
+  SERVICE_PANEL_TRANSITION_MS,
+  syncServicePanelMaskLayout,
+} from "@/lib/servicePanelMask";
 
 export interface ServiceDetailContent {
   heading: string;
@@ -38,8 +43,6 @@ const ServiceDetailsOverlayContext =
 
 const frostBackdropClass =
   "bg-[rgba(244,247,251,0.12)] [backdrop-filter:blur(16px)_saturate(118%)_brightness(1.02)] [-webkit-backdrop-filter:blur(16px)_saturate(118%)_brightness(1.02)]";
-const PANEL_TRANSITION_MS = 500;
-
 function pickActiveAnchor(
   anchors: ServiceDetailsAnchor[],
 ): ServiceDetailContent | null {
@@ -80,6 +83,11 @@ export function ServiceDetailsOverlayProvider({
     contentRef.current = content;
   }, [content]);
 
+  useEffect(() => {
+    if (!panelRef.current) return;
+    return registerServicePanelElement(panelRef.current);
+  }, []);
+
   const closeServiceDetails = useCallback(() => {
     setIsOpen(false);
   }, []);
@@ -103,49 +111,20 @@ export function ServiceDetailsOverlayProvider({
 
   useEffect(() => {
     if (isOpen) hasOpenedRef.current = true;
+    if (!isOpen && !hasOpenedRef.current) return;
 
-    const syncSeam = () => {
-      const panel = panelRef.current;
-      if (!panel) {
-        publishServicePanelSeam(null);
-        return;
-      }
-      const rect = panel.getBoundingClientRect();
-      const clampedLeft = Math.max(0, Math.min(window.innerWidth, rect.left));
-      publishServicePanelSeam(clampedLeft);
-    };
+    publishServicePanelOpen(isOpen);
+  }, [isOpen]);
 
-    if (!isOpen && !hasOpenedRef.current) {
-      publishServicePanelSeam(null);
-      return;
-    }
-
-    let frame = 0;
-    const closingUntil = isOpen
-      ? Number.POSITIVE_INFINITY
-      : performance.now() + PANEL_TRANSITION_MS + 80;
-
-    const tick = () => {
-      syncSeam();
-      if (isOpen || performance.now() < closingUntil) {
-        frame = window.requestAnimationFrame(tick);
-      } else {
-        publishServicePanelSeam(null);
-      }
-    };
-
-    frame = window.requestAnimationFrame(tick);
+  useEffect(() => {
+    if (!isOpen) return;
 
     const onResize = () => {
-      syncSeam();
+      syncServicePanelMaskLayout();
     };
 
     window.addEventListener("resize", onResize);
-
-    return () => {
-      window.cancelAnimationFrame(frame);
-      window.removeEventListener("resize", onResize);
-    };
+    return () => window.removeEventListener("resize", onResize);
   }, [isOpen]);
 
   useEffect(() => {
@@ -207,7 +186,7 @@ export function ServiceDetailsOverlayProvider({
     <ServiceDetailsOverlayContext.Provider value={value}>
       {children}
       <div
-        className={`pointer-events-none fixed inset-0 z-[60] ${
+        className={`pointer-events-none fixed inset-0 z-[70] ${
           isOpen ? "opacity-100" : "opacity-0"
         } transition-opacity duration-300 ease-out`}
         aria-hidden={!isOpen}
@@ -227,7 +206,10 @@ export function ServiceDetailsOverlayProvider({
           aria-label={content?.heading ?? "Service details"}
           className={`absolute top-0 right-0 h-full w-1/2 text-white ${frostBackdropClass} ${
             isOpen ? "translate-x-0" : "translate-x-full"
-          } pointer-events-auto transition-transform duration-500 ease-out`}
+          } pointer-events-auto transition-transform ease-out`}
+          style={{
+            transitionDuration: `${SERVICE_PANEL_TRANSITION_MS}ms`,
+          }}
         >
           {content ? (
             <div className="flex h-full flex-col overflow-y-auto px-[clamp(1.2rem,3vw,2.2rem)] py-[clamp(1.2rem,3.5vw,2.6rem)]">
